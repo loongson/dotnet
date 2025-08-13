@@ -20,6 +20,8 @@
     <BuildArgs Condition="'$(EnablePoison)' == 'true' or '$(SkipUsingCrossgen)' == 'true'">$(BuildArgs) /p:SkipUsingCrossgen=true</BuildArgs>
 
     <BuildArgs Condition="'$(BuildWorkloads)' == 'true'">$(BuildArgs) /p:BuildWorkloads=true</BuildArgs>
+    <BuildArgs>$(BuildArgs) /p:BundleNativeAotCompiler=false</BuildArgs>
+    <BuildArgs>$(BuildArgs) /p:Version=10.0.100-rc.1.25451.107</BuildArgs>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,7 +31,7 @@
     <RepositoryReference Include="deployment-tools" />
     <!-- we're focusing on x64 and arm64 for the webassembly build tools -->
     <RepositoryReference Include="emsdk" Condition="'$(DotNetBuildSourceOnly)' != 'true' and '$(PgoInstrument)' != 'true' and ('$(TargetArchitecture)' == 'x64' or '$(TargetArchitecture)' == 'arm64')" />
-    <RepositoryReference Include="fsharp" />
+    <RepositoryReference Include="fsharp" Condition="'$(TargetArchitecture)' != 'loongarch64'"/>
     <RepositoryReference Include="msbuild" />
     <RepositoryReference Include="nuget-client" />
     <RepositoryReference Include="razor" />
