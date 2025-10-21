@@ -7,7 +7,7 @@ on:
         description: 'dotnet VMR branch/tag name'
         required: true
         type: string
-        default: v10.0.100-rc.1.25451.107-loongarch64
+        default: v10.0.100-rc.2.25502.107-loongarch64
       release:
         description: 'publish release'
         type: boolean
@@ -37,8 +37,8 @@ jobs:
         mkdir -p ~/sdk ~/pkg
 
         cd ~/assets
-        sdk_name=~/assets/dotnet-sdk-10.0.100-rc.2.25462.4-linux-loongarch64.tar.gz
-        artifacts_name=~/assets/Private.SourceBuilt.Artifacts.10.0.100-rc.2.25462.4.linux-loongarch64.tar.gz
+        sdk_name=~/assets/dotnet-sdk-10.0.100-rc.1.25451.107-linux-loongarch64.tar.gz
+        artifacts_name=~/assets/Private.SourceBuilt.Artifacts.10.0.100-rc.1.25451.107.linux-loongarch64.tar.gz
 
         tar xf $sdk_name -C ~/sdk
         tar xf $artifacts_name -C ~/pkg
