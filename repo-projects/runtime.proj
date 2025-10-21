@@ -60,6 +60,7 @@
     <BuildArgs Condition="$(UseSystemLibs.Contains('+rapidjson')) or $(UseSystemLibs.Contains('+all'))">$(BuildArgs) --cmakeargs -DCLR_CMAKE_USE_SYSTEM_RAPIDJSON=true</BuildArgs>
     <BuildArgs Condition="$(UseSystemLibs.Contains('+zlib')) or $(UseSystemLibs.Contains('+all'))">$(BuildArgs) --cmakeargs -DCLR_CMAKE_USE_SYSTEM_ZLIB=true</BuildArgs>
     <BuildArgs Condition="$(UseSystemLibs.Contains('-lttng'))">$(BuildArgs) /p:FeatureXplatEventSource=false</BuildArgs>
+    <BuildArgs>$(BuildArgs) /p:Version=10.0.0-rc.2.25502.107</BuildArgs>
   </PropertyGroup>
 
   <ItemGroup>
