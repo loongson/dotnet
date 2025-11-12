@@ -108,6 +108,8 @@
     <CommonArgs>$(CommonArgs) $(FlagParameterPrefix)configuration $(Configuration)</CommonArgs>
     <CommonArgs>$(CommonArgs) $(FlagParameterPrefix)verbosity $(LogVerbosity)</CommonArgs>
     <CommonArgs>$(CommonArgs) /p:TargetRid=$(TargetRid)</CommonArgs>
+    <CommonArgs>$(CommonArgs) /p:ContinuousIntegrationBuild=true /p:OfficialBuildId=20251023.111 /p:DotNetFinalVersionKind=release</CommonArgs>
+    <CommonArgs>$(CommonArgs) /p:IncludeSourceRevisionInInformationalVersion=true /p:DotNetUseShippingVersions=true</CommonArgs>
 
     <!-- Pass through DotNetBuildPass for join point vertical support. -->
     <CommonArgs Condition="'$(DotNetBuildPass)' != '' and '$(DotNetBuildPass)' != '1'">$(CommonArgs) /p:DotNetBuildPass=$(DotNetBuildPass)</CommonArgs>
