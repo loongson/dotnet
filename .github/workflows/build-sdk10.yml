@@ -7,7 +7,7 @@ on:
         description: 'dotnet VMR branch/tag name'
         required: true
         type: string
-        default: v10.0.100-loongarch64
+        default: v10.0.101-loongarch64
       release:
         description: 'publish release'
         type: boolean
@@ -37,8 +37,8 @@ jobs:
         mkdir -p ~/sdk ~/pkg
 
         cd ~/assets
-        sdk_name=~/assets/dotnet-sdk-10.0.100-rc.2.25502.107-linux-loongarch64.tar.gz
-        artifacts_name=~/assets/Private.SourceBuilt.Artifacts.10.0.100-rc.2.25502.107.linux-loongarch64.tar.gz
+        sdk_name=~/assets/dotnet-sdk-10.0.100-linux-loongarch64.tar.gz
+        artifacts_name=~/assets/Private.SourceBuilt.Artifacts.10.0.100-rtm.25523.111.linux-loongarch64.tar.gz
 
         tar xf $sdk_name -C ~/sdk
         tar xf $artifacts_name -C ~/pkg
@@ -50,10 +50,10 @@ jobs:
         git log
 
         # Fix/workaround src/fsharp report error : Could not find a part of the path
-        mkdir -p src/fsharp/artifacts/packages/Release/Dependency/{Release,PreRelease}
+        # mkdir -p src/fsharp/artifacts/packages/Release/Dependency/{Release,PreRelease}
 
         # Build .NET SDK
-        ./build.sh  -c Release -sb --branding rtm --clean-while-building --with-packages ~/pkg --with-sdk ~/sdk -- -p:PortableBuild=true
+        ./build.sh  -c Release -sb --branding rtm --clean-while-building --with-packages ~/pkg --with-sdk ~/sdk --os linux --rid linux-loongarch64 --arch loongarch64 -p:OfficialBuildId=20251119.5
 
     - name: List assets directory
       run: |
@@ -67,34 +67,6 @@ jobs:
 
         cp -v artifacts/assets/Release/Private.SourceBuilt.Artifacts.*.tar.gz ~/assets/
         cp -v artifacts/assets/Release/Sdk/*/dotnet-sdk-*.tar.gz ~/assets/
-
-    - name: Repack sdk
-      run: |
-        RUNTIME_VERSION=10.0.0
-        SDK_VERSION=10.0.100
-        cd artifacts/assets/Release/Sdk/*/
-
-        # Download microsoft.netcore.app.ref nupkg and extract
-        # wget https://globalcdn.nuget.org/packages/microsoft.netcore.app.ref.${RUNTIME_VERSION}.nupkg?packageVersion=${RUNTIME_VERSION} -O microsoft.netcore.app.ref.${RUNTIME_VERSION}.nupkg
-        cp ~/assets/microsoft.netcore.app.ref.${RUNTIME_VERSION}.nupkg .
-
-        unzip microsoft.netcore.app.ref.${RUNTIME_VERSION}.nupkg -d microsoft.netcore.app.ref.${RUNTIME_VERSION}
-
-        # Extract dotnet-sdk
-        mkdir sdk
-        tar xf dotnet-sdk-*.tar.gz -C sdk
-
-        # Replace packs/Microsoft.NETCore.App.Ref/${RUNTIME_VERSION}/analyzers/dotnet/cs/*.dll in SDK
-        cp -v microsoft.netcore.app.ref.${RUNTIME_VERSION}/analyzers/dotnet/cs/*.dll sdk/packs/Microsoft.NETCore.App.Ref/${RUNTIME_VERSION}/analyzers/dotnet/cs/
-
-        # Remove library-packs/ in SDK
-        rm -rvf sdk/library-packs/
-
-        # Backup original SDK
-        mv dotnet-sdk-${SDK_VERSION}-linux-loongarch64.tar.gz dotnet-sdk-${SDK_VERSION}-linux-loongarch64.tar.gz.origin
-
-        # Repack SDK
-        tar --numeric-owner -zcf dotnet-sdk-${SDK_VERSION}-linux-loongarch64.tar.gz -C sdk .
 
     - name: Make release
       if: ${{ inputs.release }}
