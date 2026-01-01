@@ -94,16 +94,33 @@ FORCEINLINE int64_t PalInterlockedCompareExchange64(_Inout_ int64_t volatile *pD
     return result;
 }
 
-#if defined(HOST_AMD64) || defined(HOST_ARM64)
+#if defined(HOST_AMD64) || defined(HOST_ARM64) || defined(HOST_LOONGARCH64)
 FORCEINLINE uint8_t PalInterlockedCompareExchange128(_Inout_ int64_t volatile *pDst, int64_t iValueHigh, int64_t iValueLow, int64_t *pComparandAndResult)
 {
+#if defined(HOST_LOONGARCH64)
+    int64_t iResult0 = __sync_val_compare_and_swap(pDst, pComparandAndResult[0], iValueLow);
+    int64_t iResult1 = __sync_val_compare_and_swap(pDst+1, pComparandAndResult[1], iValueHigh);
+    PalInterlockedOperationBarrier();
+
+    uint8_t ret = pComparandAndResult[0] == iResult0;
+    pComparandAndResult[0] = iResult0;
+    ret &= pComparandAndResult[1] == iResult1;
+    pComparandAndResult[1] = iResult1;
+
+    return ret;
+#else
     __int128_t iComparand = ((__int128_t)pComparandAndResult[1] << 64) + (uint64_t)pComparandAndResult[0];
+    // NOTE: for LoongArch64, it supports 128bits atomic from 3A6000-CPU which is ISA1.1's version.
+    // The LA64's compiler will translate the `__sync_val_compare_and_swap` into calling the libatomic's library interface to emulate
+    // the 128-bit CAS by mutex_lock if the target processor doesn't support the ISA1.1.
+    // But this emulation by libatomic doesn't satisfy requirements here which it must update two adjacent pointers atomically.
     __int128_t iResult = __sync_val_compare_and_swap((__int128_t volatile*)pDst, iComparand, ((__int128_t)iValueHigh << 64) + (uint64_t)iValueLow);
     PalInterlockedOperationBarrier();
     pComparandAndResult[0] = (int64_t)iResult; pComparandAndResult[1] = (int64_t)(iResult >> 64);
     return iComparand == iResult;
+#endif
 }
-#endif // HOST_AMD64
+#endif // HOST_AMD64 || defined(HOST_ARM64) || defined(HOST_LOONGARCH64)
 
 #ifdef HOST_64BIT
 

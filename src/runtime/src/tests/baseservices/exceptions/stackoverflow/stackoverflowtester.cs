@@ -115,9 +115,10 @@ namespace TestStackOverflow
         [Fact]
         public static void TestStackOverflowLargeFrameMainThread()
         {
-            if ((RuntimeInformation.ProcessArchitecture == Architecture.Arm64) &&
+            if (((RuntimeInformation.ProcessArchitecture == Architecture.Arm64) || (RuntimeInformation.ProcessArchitecture == Architecture.LoongArch64)) &&
                 ((Environment.OSVersion.Platform == PlatformID.Unix) || (Environment.OSVersion.Platform == PlatformID.MacOSX)))
             {
+                // LoongArch64 hit this issue on Alpine. TODO: implement stack probing using helpers.
                 // Disabled on Unix ARM64 due to https://github.com/dotnet/runtime/issues/13519
                 // The current stack probing doesn't move the stack pointer and so the runtime sometimes cannot
                 // recognize the underlying sigsegv as stack overflow when it probes too far from SP.
@@ -181,9 +182,10 @@ namespace TestStackOverflow
         [Fact]
         public static void TestStackOverflowLargeFrameSecondaryThread()
         {
-            if ((RuntimeInformation.ProcessArchitecture == Architecture.Arm64) &&
+            if (((RuntimeInformation.ProcessArchitecture == Architecture.Arm64) || (RuntimeInformation.ProcessArchitecture == Architecture.LoongArch64)) &&
                 ((Environment.OSVersion.Platform == PlatformID.Unix) || (Environment.OSVersion.Platform == PlatformID.MacOSX)))
             {
+                // LoongArch64 hit this issue on Alpine. TODO: implement stack probing using helpers.
                 // Disabled on Unix ARM64 due to https://github.com/dotnet/runtime/issues/13519
                 // The current stack probing doesn't move the stack pointer and so the runtime sometimes cannot
                 // recognize the underlying sigsegv as stack overflow when it probes too far from SP.
