@@ -7,4 +7,4 @@
 #define RuntimeProductMajorVersion 0
 #define RuntimeProductMinorVersion 0
 #define RuntimeProductPatchVersion 0
-#define RuntimeProductVersion 0.0.0-dev
+#define RuntimeProductVersion 8.0.21

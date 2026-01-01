@@ -1858,6 +1858,10 @@ MethodTableBuilder::BuildMethodTableThrowing(
 #endif // FEATURE_HFA
         SystemVAmd64CheckForPassStructInRegister(pByValueClassCache);
 #endif // UNIX_AMD64_ABI
+
+#ifdef TARGET_LOONGARCH64
+        LoongArch64CheckForPassStructInRegister();
+#endif // TARGET_LOONGARCH64
     }
 
 #ifdef _DEBUG
@@ -8527,6 +8531,42 @@ void MethodTableBuilder::StoreEightByteClassification(SystemVStructRegisterPassi
 
 #endif // UNIX_AMD64_ABI
 
+#ifdef TARGET_LOONGARCH64
+// checks whether the struct is enregisterable.
+void MethodTableBuilder::LoongArch64CheckForPassStructInRegister()
+{
+    STANDARD_VM_CONTRACT;
+
+    // This method should be called for valuetypes only
+    _ASSERTE(IsValueClass());
+
+    TypeHandle th(GetHalfBakedMethodTable());
+
+
+    if (th.IsTypeDesc())
+    {
+        // Not an enregisterable managed structure.
+        return;
+    }
+
+    DWORD totalStructSize = bmtFP->NumInstanceFieldBytes;
+
+    // If num of bytes for the fields is bigger than CLR_SYSTEMV_MAX_STRUCT_BYTES_TO_PASS_IN_REGISTERS
+    // pass through stack
+    if (totalStructSize > ENREGISTERED_PARAMTYPE_MAXSIZE)
+    {
+        LOG((LF_JIT, LL_EVERYTHING, "**** LoongArch64CheckForPassStructInRegister: struct %s is too big to pass in registers (%d bytes)\n",
+               this->GetDebugClassName(), totalStructSize));
+        return;
+    }
+
+    if (th.GetSize() <= 16 /*MAX_PASS_MULTIREG_BYTES*/)
+    {
+        GetHalfBakedMethodTable()->SetRegPassedStruct();
+    }
+}
+#endif // TARGET_LOONGARCH64
+
 //---------------------------------------------------------------------------------------
 //
 // make sure that no object fields are overlapped incorrectly and define the
@@ -10023,14 +10063,14 @@ void MethodTableBuilder::CheckForSystemTypes()
                     // to the same alignment as __m128, which is supported by the ABI.
 
                     pLayout->m_ManagedLargestAlignmentRequirementOfAllMembers = 8;
-    #elif defined(TARGET_ARM64)
+    #elif defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
                     // The Procedure Call Standard for ARM 64-bit (with SVE support) defaults to
                     // 16-byte alignment for __m256.
 
                     pLayout->m_ManagedLargestAlignmentRequirementOfAllMembers = 16;
     #else
                     pLayout->m_ManagedLargestAlignmentRequirementOfAllMembers = 32; // sizeof(__m256)
-    #endif // TARGET_ARM elif TARGET_ARM64
+    #endif // TARGET_ARM elif TARGET_ARM64 || TARGET_LOONGARCH64
                 }
                 else if (strcmp(name, g_Vector512Name) == 0)
                 {
@@ -10039,14 +10079,14 @@ void MethodTableBuilder::CheckForSystemTypes()
                     // to the same alignment as __m128, which is supported by the ABI.
 
                     pLayout->m_ManagedLargestAlignmentRequirementOfAllMembers = 8;
-    #elif defined(TARGET_ARM64)
+    #elif defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
                     // The Procedure Call Standard for ARM 64-bit (with SVE support) defaults to
                     // 16-byte alignment for __m256.
 
                     pLayout->m_ManagedLargestAlignmentRequirementOfAllMembers = 16;
     #else
                     pLayout->m_ManagedLargestAlignmentRequirementOfAllMembers = 64; // sizeof(__m512)
-    #endif // TARGET_ARM elif TARGET_ARM64
+    #endif // TARGET_ARM elif TARGET_ARM64 || TARGET_LOONGARCH64
                 }
                 else
                 {

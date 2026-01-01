@@ -333,6 +333,9 @@ void command_line::print_muxer_info(const pal::string_t &dotnet_root, const pal:
     trace::println(_X("\n")
         _X("Download .NET:\n")
         _X("  ") DOTNET_CORE_DOWNLOAD_URL);
+    trace::println();
+    trace::println(_X("Loongson's .NET version:"));
+    trace::println("  8.0.121-1");
 }
 
 void command_line::print_muxer_usage(bool is_sdk_present)

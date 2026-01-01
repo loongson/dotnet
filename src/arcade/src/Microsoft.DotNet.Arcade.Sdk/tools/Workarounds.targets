@@ -76,8 +76,6 @@
     </PropertyGroup>
 
     <Error Text="PackageDescription must be specified" Condition="'$(PackageDescription)' == ''"/>
-    <Error Text="PackageProjectUrl must be specified" Condition="'$(PackageProjectUrl)' == ''"/>
-    <Error Text="RepositoryUrl must be specified" Condition="'$(RepositoryUrl)' == ''"/>
     <Error Text="RepositoryCommit must be specified" Condition="'$(RepositoryCommit)' == ''"/>
     <Error Text="RepositoryType must be specified" Condition="'$(RepositoryType)' == ''"/>
     <Error Text="Either PackageLicenseExpression or PackageLicenseFile must be specified" Condition="'$(PackageLicenseExpression)' == '' and '$(PackageLicenseFile)' == ''"/>

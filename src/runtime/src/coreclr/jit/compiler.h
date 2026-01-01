@@ -10308,7 +10308,7 @@ public:
 
     unsigned compArgSize; // total size of arguments in bytes (including register args (lvIsRegArg))
 
-#ifdef TARGET_ARM
+#if defined(TARGET_ARM) || defined(TARGET_RISCV64) || defined(TARGET_LOONGARCH64)
     bool compHasSplitParam;
 #endif
 
