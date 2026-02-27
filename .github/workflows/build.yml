@@ -1,0 +1,121 @@
+name: Release LoongArch .NET SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      fork:
+        description: 'dotnet VMR fork name'
+        required: true
+        type: string
+        default: chenguohui
+      branch:
+        description: 'dotnet VMR branch name'
+        required: true
+        type: string
+        default: v10.0.103
+      branding:
+        description: '.NET 10.0-release, .NET 11.0-repodefault'
+        required: true
+        type: string
+        default: release
+      buildid:
+        description: 'dotnet OfficialBuildId'
+        required: true
+        type: string
+        default: 20260125.3
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - name: linux
+            libc: glibc
+            docker_tag: azurelinux-3.0-net10.0-cross-loongarch64
+          - name: linux-musl
+            libc: musl
+            docker_tag: azurelinux-3.0-net10.0-cross-loongarch64-musl
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Maximize build space
+      uses: AdityaGarg8/remove-unwanted-software@v4.1
+      with:
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+        remove-codeql: 'true'
+        remove-cached-tools: 'true'
+
+    - name: Clone repository
+      run: |
+        git clone --single-branch --depth 1 -b ${{ inputs.branch }} https://github.com/${{ inputs.fork }}/dotnet
+
+    - name: Apply patches
+      run: |
+        cd dotnet
+
+        # Fix build #4043 
+        # curl https://patch-diff.githubusercontent.com/raw/dotnet/dotnet/pull/4043.diff | git apply
+
+        # KeepNativeSymbols=true
+        sed -i "/<KeepNativeSymbols/ s/true/false/g" src/runtime/Directory.Build.props
+
+        cp -v src/runtime/src/libraries/System.IO.Ports/pkg/runtime.linux-x64.runtime.native.System.IO.Ports.proj src/runtime/src/libraries/System.IO.Ports/pkg/runtime.linux-loongarch64.runtime.native.System.IO.Ports.proj
+        cp -v src/runtime/src/libraries/System.IO.Ports/pkg/runtime.linux-x64.runtime.native.System.IO.Ports.proj src/runtime/src/libraries/System.IO.Ports/pkg/runtime.linux-musl-loongarch64.runtime.native.System.IO.Ports.proj
+
+    - name: Build
+      run: |
+        docker run --platform linux/amd64 --rm -v${{ github.workspace }}/dotnet:/dotnet -w /dotnet -e ROOTFS_DIR=/crossrootfs/loongarch64 \
+          mcr.microsoft.com/dotnet-buildtools/prereqs:${{ matrix.docker_tag }} \
+            ./build.sh --clean-while-building --prep -sb --os ${{ matrix.name }} --rid ${{ matrix.name }}-loongarch64 \
+              --arch loongarch64 --branding ${{ inputs.branding }} -p:OfficialBuildId=${{ inputs.buildid }}
+
+    - name: List assets directory
+      run: |
+        find "${{ github.workspace }}/dotnet/artifacts"
+    - name: Upload .NET
+      uses: actions/upload-artifact@v4
+      with:
+        name: dotnet-sdk-${{ matrix.name }}
+        path: |
+          ${{ github.workspace }}/dotnet/artifacts/assets/Release/Sdk/*/dotnet-sdk-*.tar.gz
+          ${{ github.workspace }}/dotnet/artifacts/assets/Release/Private.SourceBuilt.Artifacts.*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Make release
+      run: |
+        sudo apt install -y hub
+        # hub(1) requires release to be created inside a git repo
+        git clone https://${{ secrets.CLONE_TOKEN }}:x-oauth-basic@github.com/${{ github.repository }}.git repo
+        cd repo
+        sdk_paths=$(find ${{ github.workspace }}/artifacts -name 'dotnet-sdk-*.tar.gz')
+        psa_paths=$(find ${{ github.workspace }}/artifacts -name 'Private.SourceBuilt.Artifacts.*.tar.gz')
+        artifacts=""
+        for sdk_path in $sdk_paths; do
+          sdk_filename=$(basename "$sdk_path")
+          # Extract version: strip prefix/suffix to get e.g. "10.0.100-preview.5.25277.114"
+          sdk_version=$(echo "$sdk_filename" | sed -E 's/dotnet-sdk-([^-]+(-[^-]+)*)-linux-.+\.tar\.gz/\1/')
+          artifacts="$artifacts -a $sdk_path"
+          tag_name="$sdk_version"
+        done
+        for psa_path in $psa_paths; do
+          artifacts="$artifacts -a $psa_path"
+        done
+        echo "tag_name: $tag_name"
+        echo "artifacts: $artifacts"
+        # docs: https://hub.github.com/hub-release.1.html
+        hub release create $artifacts --prerelease -m "$tag_name" "$tag_name"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
