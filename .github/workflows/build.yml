@@ -12,7 +12,7 @@ on:
         description: 'dotnet VMR branch name'
         required: true
         type: string
-        default: v10.0.103
+        default: v10.0.104
       branding:
         description: '.NET 10.0-release, .NET 11.0-repodefault'
         required: true
@@ -22,7 +22,7 @@ on:
         description: 'dotnet OfficialBuildId'
         required: true
         type: string
-        default: 20260125.3
+        default: 20260219.10
 
 jobs:
   build:
@@ -55,9 +55,6 @@ jobs:
     - name: Apply patches
       run: |
         cd dotnet
-
-        # Fix build #4043 
-        # curl https://patch-diff.githubusercontent.com/raw/dotnet/dotnet/pull/4043.diff | git apply
 
         # KeepNativeSymbols=true
         sed -i "/<KeepNativeSymbols/ s/true/false/g" src/runtime/Directory.Build.props
