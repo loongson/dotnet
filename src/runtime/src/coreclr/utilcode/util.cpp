@@ -2525,6 +2525,104 @@ void PutArm64Rel12(UINT32 * pCode, INT32 imm12)
     _ASSERTE(GetArm64Rel12(pCode) == imm12);
 }
 
+//*****************************************************************************
+//  Extract the PC-Relative page address and page offset from pcaddu12i+add/ld
+//*****************************************************************************
+INT32 GetLoongArch64PC12(UINT32 * pCode)
+{
+    UINT32 pcInstr = *pCode;
+
+    // first get the high 20 bits,
+    INT32 imm = (INT32)(((pcInstr >> 5) & 0xFFFFF) << 12);
+
+    // then get the low 12 bits,
+    pcInstr = *(pCode + 1);
+    imm += ((INT32)(((pcInstr >> 10) & 0xFFF) << 20)) >> 20;
+
+    return imm;
+}
+
+//*****************************************************************************
+//  Extract the jump offset into pcaddu18i+jirl instructions
+//*****************************************************************************
+INT64 GetLoongArch64JIR(UINT32 * pCode)
+{
+    UINT32 pcInstr = *pCode;
+
+    // first get the high 20 bits,
+    INT64 imm = ((INT64)((pcInstr >> 5) & 0xFFFFF) << 18);
+
+    // then get the low 18 bits
+    pcInstr = *(pCode + 1);
+    imm += ((INT64)((INT16)((pcInstr >> 10) & 0xFFFF))) << 2;
+
+    return imm;
+}
+
+//*****************************************************************************
+//  Deposit the PC-Relative page address and page offset into pcaddu12i+add/ld
+//*****************************************************************************
+void PutLoongArch64PC12(UINT32 * pCode, INT64 imm)
+{
+    // Verify that we got a valid offset
+    _ASSERTE((INT32)imm == imm);
+
+    UINT32 pcInstr = *pCode;
+
+    _ASSERTE((pcInstr & 0xFE000000) == 0x1c000000); // Must be pcaddu12i
+
+    INT32 relOff = (INT32)imm & 0x800;
+    INT32 imm32 = (INT32)imm + relOff;
+    relOff = ((imm32 & 0x7ff) - relOff) & 0xfff;
+
+    // Assemble the pc-relative high 20 bits of 'imm' into the pcaddu12i instruction
+    pcInstr |= (UINT32)(((imm32 >> 12) & 0xFFFFF) << 5);
+
+    *pCode = pcInstr; // write the assembled instruction
+
+    pcInstr = *(pCode + 1);
+
+    // Assemble the pc-relative low 12 bits of 'imm' into the addid or ld instruction
+    pcInstr |= (UINT32)(relOff << 10);
+
+    *(pCode + 1) = pcInstr; // write the assembled instruction
+
+    _ASSERTE((INT64)GetLoongArch64PC12(pCode) == imm);
+}
+
+//*****************************************************************************
+//  Deposit the jump offset into pcaddu18i+jirl instructions
+//*****************************************************************************
+void PutLoongArch64JIR(UINT32 * pCode, INT64 imm38)
+{
+    // Verify that we got a valid offset
+    _ASSERTE((imm38 >= -0x2000000000L) && (imm38 < 0x2000000000L));
+
+    _ASSERTE((imm38 & 0x3) == 0); // the low two bits must be zero
+
+    UINT32 pcInstr = *pCode;
+
+    _ASSERTE(pcInstr == 0x1e00000e); // Must be pcaddu18i R14, 0
+
+    INT64 relOff = imm38 & 0x20000;
+    INT64 imm = imm38 + relOff;
+    relOff = (((imm & 0x1ffff) - relOff) >> 2) & 0xffff;
+
+    // Assemble the pc-relative high 20 bits of 'imm38' into the pcaddu18i instruction
+    pcInstr |= (UINT32)(((imm >> 18) & 0xFFFFF) << 5);
+
+    *pCode = pcInstr; // write the assembled instruction
+
+    pcInstr = *(pCode + 1);
+
+    // Assemble the pc-relative low 18 bits of 'imm38' into the jirl instruction
+    pcInstr |= (UINT32)(relOff << 10);
+
+    *(pCode + 1) = pcInstr; // write the assembled instruction
+
+    _ASSERTE(GetLoongArch64JIR(pCode) == imm38);
+}
+
 //======================================================================
 // This function returns true, if it can determine that the instruction pointer
 // refers to a code address that belongs in the range of the given image.

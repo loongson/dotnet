@@ -106,11 +106,12 @@ typedef DPTR(GCCoverageInfo) PTR_GCCoverageInfo; // see code:GCCoverageInfo::sav
 #define INTERRUPT_INSTR_PROTECT_RET     0xBADC0DE2
 
 #elif defined(TARGET_LOONGARCH64)
-
 // The following encodings are undefined.
-#define INTERRUPT_INSTR                 0xffffff0f
-#define INTERRUPT_INSTR_CALL            0xffffff0e
-#define INTERRUPT_INSTR_PROTECT_RET     0xffffff0d
+#define INTERRUPT_INSTR                         0xffffff0f
+#define INTERRUPT_INSTR_CALL                    0xffffff0e
+#define INTERRUPT_INSTR_PROTECT_FIRST_RET       0xffffff0d    // protect the first return register
+#define INTERRUPT_INSTR_PROTECT_SECOND_RET      0xffffff0c    // protect the second return register
+#define INTERRUPT_INSTR_PROTECT_BOTH_RET        0xffffff0b    // protect both return registers
 
 #elif defined(TARGET_RISCV64)
 // TODO-RISCV64: Confirm the following encodings are undefined
@@ -126,18 +127,6 @@ typedef DPTR(GCCoverageInfo) PTR_GCCoverageInfo; // see code:GCCoverageInfo::sav
 inline bool IsGcCoverageInterruptInstructionVal(UINT32 instrVal)
 {
 #if defined(TARGET_ARM64)
-
-    switch (instrVal)
-    {
-    case INTERRUPT_INSTR:
-    case INTERRUPT_INSTR_CALL:
-    case INTERRUPT_INSTR_PROTECT_RET:
-        return true;
-    default:
-        return false;
-    }
-
-#elif defined(TARGET_LOONGARCH64)
 
     switch (instrVal)
     {
@@ -184,7 +173,7 @@ inline bool IsGcCoverageInterruptInstructionVal(UINT32 instrVal)
     _ASSERTE(!"RISCV64:NYI");
     return false;
 
-#else // x64 and x86
+#else // x64 and x86 and LoongArch64
 
     switch (instrVal)
     {
