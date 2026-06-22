@@ -291,9 +291,9 @@ void Compiler::lvaInitTypeRef()
     LclVarDsc*              varDsc    = varDscInfo.varDsc;
     CORINFO_ARG_LIST_HANDLE localsSig = info.compMethodInfo->locals.args;
 
-#if defined(TARGET_ARM) || defined(TARGET_RISCV64)
+#if defined(TARGET_ARM) || defined(TARGET_RISCV64) || defined(TARGET_LOONGARCH64)
     compHasSplitParam = varDscInfo.hasSplitParam;
-#endif // TARGET_ARM || TARGET_RISCV64
+#endif // TARGET_ARM || TARGET_RISCV64 || defined(TARGET_LOONGARCH64)
 
     for (unsigned i = 0; i < info.compMethodInfo->locals.numArgs;
          i++, varNum++, varDsc++, localsSig = info.compCompHnd->getArgNext(localsSig))
@@ -1078,6 +1078,7 @@ void Compiler::lvaInitUserArgs(InitVarDscInfo* varDscInfo, unsigned skipArgs, un
                         secondAllocatedRegArgNum = varDscInfo->allocRegArg(argRegTypeInStruct2, 1);
                         varDsc->SetOtherArgReg(
                             genMapRegArgNumToRegNum(secondAllocatedRegArgNum, argRegTypeInStruct2, info.compCallConv));
+                        varDsc->lvIsMultiRegArg  = true;
                     }
                     else if (cSlotsToEnregister > 1)
                     {
@@ -1087,9 +1088,7 @@ void Compiler::lvaInitUserArgs(InitVarDscInfo* varDscInfo, unsigned skipArgs, un
                         varDsc->SetOtherArgReg(REG_STK);
                         varDscInfo->setAllRegArgUsed(argRegTypeInStruct1);
                         varDscInfo->stackArgSize += TARGET_POINTER_SIZE;
-#ifdef TARGET_RISCV64
                         varDscInfo->hasSplitParam = true;
-#endif
                     }
                 }
                 else
@@ -1099,6 +1098,7 @@ void Compiler::lvaInitUserArgs(InitVarDscInfo* varDscInfo, unsigned skipArgs, un
                     {
                         varDsc->SetOtherArgReg(
                             genMapRegArgNumToRegNum(firstAllocatedRegArgNum + 1, TYP_I_IMPL, info.compCallConv));
+                        varDsc->lvIsMultiRegArg  = true;
                     }
 
                     assert(cSlots <= 2);

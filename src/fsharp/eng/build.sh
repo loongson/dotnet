@@ -275,7 +275,7 @@ function BuildSolution {
 
     local blrestore=""
     if [[ "$source_build" != "true" ]]; then
-      blrestore="/restore"
+      blrestore="-restore"
     fi
 
     BuildMessage="Error building tools"

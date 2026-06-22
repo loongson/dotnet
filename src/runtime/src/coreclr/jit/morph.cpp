@@ -1138,6 +1138,20 @@ void CallArgs::ArgsComplete(Compiler* comp, GenTreeCall* call)
                         SetNeedsTemp(&arg);
                     }
                 }
+#ifdef TARGET_LOONGARCH64
+                for (unsigned i = 0; i < arg.NewAbiInfo.NumSegments; i++)
+                {
+                    const ABIPassingSegment& seg = arg.NewAbiInfo.Segment(i);
+                    if (seg.IsPassedInRegister())
+                    {
+                        var_types regType = seg.GetRegisterType();
+                        if (!varTypeUsesFloatReg(regType) && !isPow2(seg.Offset))
+                        {
+                            SetNeedsTemp(&arg);
+                        }
+                    }
+                }
+#endif // TARGET_LOONGARCH64
             }
         }
 #endif // FEATURE_MULTIREG_ARGS
@@ -4734,7 +4748,7 @@ bool Compiler::fgCanFastTailCall(GenTreeCall* callee, const char** failReason)
 #endif // DEBUG
     };
 
-#if defined(TARGET_ARM) || defined(TARGET_RISCV64)
+#if defined(TARGET_ARM) || defined(TARGET_RISCV64) || defined(TARGET_LOONGARCH64)
     for (CallArg& arg : callee->gtArgs.Args())
     {
         if (arg.NewAbiInfo.IsSplitAcrossRegistersAndStack())
@@ -4743,15 +4757,13 @@ bool Compiler::fgCanFastTailCall(GenTreeCall* callee, const char** failReason)
             return false;
         }
     }
-#endif // TARGET_ARM || TARGET_RISCV64
 
-#if defined(TARGET_ARM) || defined(TARGET_RISCV64)
     if (compHasSplitParam)
     {
         reportFastTailCallDecision("Argument splitting in caller is not supported on " TARGET_READABLE_NAME);
         return false;
     }
-#endif // TARGET_ARM || TARGET_RISCV64
+#endif // TARGET_ARM || TARGET_RISCV64 || defined(TARGET_LOONGARCH64)
 
 #ifdef TARGET_ARM
     if (compIsProfilerHookNeeded())

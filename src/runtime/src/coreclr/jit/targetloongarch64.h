@@ -149,7 +149,7 @@
   //       t6: the destination address (object reference written here)
   //     On exit:
   //       t8: incremented by 8
-  //       t6: incremented by 8
+  //       t7: trashed
   //
 
   #define REG_WRITE_BARRIER_DST          REG_T6
@@ -176,7 +176,7 @@
   #define RBM_CALLEE_TRASH_WRITEBARRIER_BYREF   (RBM_WRITE_BARRIER_DST_BYREF | RBM_WRITE_BARRIER_SRC_BYREF | RBM_CALLEE_TRASH_NOGC)
 
   // Registers no longer containing GC pointers after CORINFO_HELP_ASSIGN_BYREF.
-  // Note that a0 and a1 are still valid byref pointers after this helper call, despite their value being changed.
+  // Note that t8 and t6 are still valid byref pointers after this helper call, despite their value being changed.
   #define RBM_CALLEE_GCTRASH_WRITEBARRIER_BYREF RBM_CALLEE_TRASH_NOGC
 
   // GenericPInvokeCalliHelper VASigCookie Parameter
