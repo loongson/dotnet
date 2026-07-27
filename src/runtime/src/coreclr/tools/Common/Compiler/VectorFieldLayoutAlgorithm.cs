@@ -58,6 +58,12 @@ namespace ILCompiler
                     // 16-byte alignment for __m256.
                     alignment = new LayoutInt(16);
                 }
+                else if (defType.Context.Target.Architecture == TargetArchitecture.LoongArch64)
+                {
+                    // The Procedure Call Standard for LoongArch64 defaults to
+                    // 16-byte alignment for __m256.
+                    alignment = new LayoutInt(16);
+                }
                 else
                 {
                     alignment = new LayoutInt(32);
@@ -76,7 +82,13 @@ namespace ILCompiler
                 else if (defType.Context.Target.Architecture == TargetArchitecture.ARM64)
                 {
                     // The Procedure Call Standard for ARM 64-bit (with SVE support) defaults to
-                    // 16-byte alignment for __m256.
+                    // 16-byte alignment for __m512.
+                    alignment = new LayoutInt(16);
+                }
+                else if (defType.Context.Target.Architecture == TargetArchitecture.LoongArch64)
+                {
+                    // The Procedure Call Standard for LoongArch64 defaults to
+                    // 16-byte alignment for __m512.
                     alignment = new LayoutInt(16);
                 }
                 else
@@ -117,6 +129,7 @@ namespace ILCompiler
 
         public override ValueTypeShapeCharacteristics ComputeValueTypeShapeCharacteristics(DefType type)
         {
+            // TODO: should add LoongArch64 here for optimization ?
             if (type.Context.Target.Architecture == TargetArchitecture.ARM64 &&
                 type.Instantiation[0].IsPrimitiveNumeric)
             {

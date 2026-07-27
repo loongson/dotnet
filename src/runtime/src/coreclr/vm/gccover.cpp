@@ -344,11 +344,48 @@ void ReplaceInstrAfterCall(PBYTE instrToReplace, MethodDesc* callMD)
         *instrToReplace = INTERRUPT_INSTR;
     }
 #elif defined(TARGET_LOONGARCH64)
-    bool protectReturn = ispointerKind;
-    if (protectReturn)
-        *(DWORD*)instrToReplace = INTERRUPT_INSTR_PROTECT_RET;
+    if (ispointerKind)
+    {
+        bool protectRegister[2] = { false, false };
+
+        bool moreRegisters = false;
+
+        ReturnKind fieldKind1 = ExtractRegReturnKind(returnKind, 0, moreRegisters);
+        if (IsPointerFieldReturnKind(fieldKind1))
+        {
+            protectRegister[0] = true;
+        }
+        if (moreRegisters)
+        {
+            ReturnKind fieldKind2 = ExtractRegReturnKind(returnKind, 1, moreRegisters);
+            if (IsPointerFieldReturnKind(fieldKind2))
+            {
+                protectRegister[1] = true;
+            }
+        }
+        _ASSERTE(!moreRegisters);
+
+        if (protectRegister[0] && !protectRegister[1])
+        {
+            *(DWORD*)instrToReplace = INTERRUPT_INSTR_PROTECT_FIRST_RET;
+        }
+        else
+        {
+            if (!protectRegister[0] && protectRegister[1])
+            {
+                *(DWORD*)instrToReplace = INTERRUPT_INSTR_PROTECT_SECOND_RET;
+            }
+            else
+            {
+                _ASSERTE(protectRegister[0] && protectRegister[1]);
+                *(DWORD*)instrToReplace = INTERRUPT_INSTR_PROTECT_BOTH_RET;
+            }
+        }
+    }
     else
+    {
         *(DWORD*)instrToReplace = INTERRUPT_INSTR;
+    }
 #elif defined(TARGET_RISCV64)
     _ASSERTE(!"not implemented for RISCV64 NYI");
 #else
@@ -774,8 +811,8 @@ void replaceSafePointInstructionWithGcStressInstr(UINT32 safePointOffset, LPVOID
     {
         instructionIsACallThroughImmediate = TRUE;
     }
-    // jirl
-    else if (((instr >> 26) & 0x3F) == 0x13)
+    // jirl ra, target, offs
+    else if ((((instr >> 26) & 0x3F) == 0x13) && ((instr & 0x1F) == 1))
     {
         instructionIsACallThroughRegister = TRUE;
     }
@@ -1014,7 +1051,7 @@ static PBYTE getTargetOfCall(PBYTE instrPtr, PCONTEXT regs, PBYTE* nextInstr) {
         *nextInstr = instrPtr + 4;
         return PC + imm26;
     }
-    else if ((((*reinterpret_cast<DWORD*>(instrPtr)) >> 26) & 0x3F) == 0x13)
+    else if (((((*reinterpret_cast<DWORD*>(instrPtr)) >> 26) & 0x3F) == 0x13) && (((*reinterpret_cast<DWORD*>(instrPtr)) & 0x1F) == 1))
     {
         // call through register
         *nextInstr = instrPtr + 4;
@@ -1438,9 +1475,13 @@ void DoGcStress (PCONTEXT regs, NativeCodeVersion nativeCodeVersion)
     bool atCall;
     bool afterCallProtect[2] = { false, false };
 
-#if defined(TARGET_X86) || defined(TARGET_AMD64)
+#if defined(TARGET_X86) || defined(TARGET_AMD64) || defined(TARGET_LOONGARCH64)
 
+#if defined(TARGET_LOONGARCH64)
+    DWORD instrVal = *(DWORD *)instrPtr;
+#else
     BYTE instrVal = *instrPtr;
+#endif
     forceStack[6] = &instrVal;            // This is so I can see it fastchecked
 
     atCall = (instrVal == INTERRUPT_INSTR_CALL);
@@ -1488,12 +1529,6 @@ void DoGcStress (PCONTEXT regs, NativeCodeVersion nativeCodeVersion)
     atCall = (instrVal == INTERRUPT_INSTR_CALL);
     afterCallProtect[0] = (instrVal == INTERRUPT_INSTR_PROTECT_RET);
 
-#elif defined(TARGET_LOONGARCH64)
-    DWORD instrVal = *(DWORD *)instrPtr;
-    forceStack[6] = &instrVal;            // This is so I can see it fastchecked
-
-    atCall = (instrVal == INTERRUPT_INSTR_CALL);
-    afterCallProtect[0] = (instrVal == INTERRUPT_INSTR_PROTECT_RET);
 #elif defined(TARGET_RISCV64)
     _ASSERTE(!"not implemented for RISCV64 NYI");
     DWORD instrVal = *(DWORD *)instrPtr;
@@ -1768,9 +1803,11 @@ void DoGcStress (PCONTEXT regs, NativeCodeVersion nativeCodeVersion)
     {
 #if defined(TARGET_AMD64) && defined(TARGET_UNIX)
         retValRegs[numberOfRegs++] = regs->Rdx;
-#else // !TARGET_AMD64 || !TARGET_UNIX
+#elif defined(TARGET_LOONGARCH64)
+        retValRegs[numberOfRegs++] = regs->A1;
+#else // !TARGET_AMD64 || !TARGET_UNIX || !TARGET_LOONGARCH64
         _ASSERTE(!"Not expected multi reg return with pointers.");
-#endif // !TARGET_AMD64 || !TARGET_UNIX
+#endif // !TARGET_AMD64 || !TARGET_UNIX || !TARGET_LOONGARCH64
     }
 
     _ASSERTE(sizeof(OBJECTREF) == sizeof(DWORD_PTR));
@@ -1825,9 +1862,11 @@ void DoGcStress (PCONTEXT regs, NativeCodeVersion nativeCodeVersion)
         {
 #if defined(TARGET_AMD64) && defined(TARGET_UNIX)
             regs->Rdx = retValRegs[numberOfRegs - 1];
-#else // !TARGET_AMD64 || !TARGET_UNIX
+#elif defined(TARGET_LOONGARCH64)
+            regs->A1 = retValRegs[numberOfRegs - 1];
+#else // !TARGET_AMD64 || !TARGET_UNIX || !TARGET_LOONGARCH64
             _ASSERTE(!"Not expected multi reg return with pointers.");
-#endif // !TARGET_AMD64 || !TARGET_UNIX
+#endif // !TARGET_AMD64 || !TARGET_UNIX || !TARGET_LOONGARCH64
         }
     }
 

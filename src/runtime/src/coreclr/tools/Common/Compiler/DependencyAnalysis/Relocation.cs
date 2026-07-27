@@ -339,32 +339,32 @@ namespace ILCompiler.DependencyAnalysis
         //  case:EA_PTR_DSP_RELOC
         //   pcaddu12i  reg, off-hi-20bits
         //   ld_d  reg, reg, off-lo-12bits
-        private static unsafe void PutLoongArch64PC12(uint* pCode, long imm32)
+        private static unsafe void PutLoongArch64PC12(uint* pCode, long imm)
         {
             // Verify that we got a valid offset
-            Debug.Assert((int)imm32 == imm32);
+            Debug.Assert((int)imm == imm);
 
             uint pcInstr = *pCode;
 
             Debug.Assert((pcInstr & 0xFE000000) == 0x1c000000);  // Must be pcaddu12i
 
-            int relOff = (int)imm32 & 0x800;
-            int imm = (int)imm32 + relOff;
-            relOff = ((imm & 0x7ff) - relOff) & 0xfff;
+            int relOff = (int)imm & 0x800;
+            int imm32 = (int)imm + relOff;
+            relOff = ((imm32 & 0x7ff) - relOff) & 0xfff;
 
-            // Assemble the pc-relative high 20 bits of 'imm32' into the pcaddu12i instruction
-            pcInstr |= (uint)(((imm >> 12) & 0xFFFFF) << 5);
+            // Assemble the pc-relative high 20 bits of 'imm' into the pcaddu12i instruction
+            pcInstr |= (uint)(((imm32 >> 12) & 0xFFFFF) << 5);
 
             *pCode = pcInstr;          // write the assembled instruction
 
             pcInstr = *(pCode + 1);
 
-            // Assemble the pc-relative low 12 bits of 'imm32' into the addid or ld instruction
+            // Assemble the pc-relative low 12 bits of 'imm' into the addid or ld instruction
             pcInstr |= (uint)(relOff << 10);
 
             *(pCode + 1) = pcInstr;          // write the assembled instruction
 
-            Debug.Assert(GetLoongArch64PC12(pCode) == imm32);
+            Debug.Assert((long)GetLoongArch64PC12(pCode) == imm);
         }
 
         private static unsafe long GetLoongArch64JIR(uint* pCode)
@@ -396,14 +396,14 @@ namespace ILCompiler.DependencyAnalysis
             long imm = imm38 + relOff;
             relOff = (((imm & 0x1ffff) - relOff) >> 2) & 0xffff;
 
-            // Assemble the pc-relative high 20 bits of 'imm38' into the pcaddu12i instruction
+            // Assemble the pc-relative high 20 bits of 'imm38' into the pcaddu18i instruction
             pcInstr |= (uint)(((imm >> 18) & 0xFFFFF) << 5);
 
             *pCode = pcInstr;          // write the assembled instruction
 
             pcInstr = *(pCode + 1);
 
-            // Assemble the pc-relative low 18 bits of 'imm38' into the addid or ld instruction
+            // Assemble the pc-relative low 18 bits of 'imm38' into the jirl instruction
             pcInstr |= (uint)(relOff << 10);
 
             *(pCode + 1) = pcInstr;          // write the assembled instruction
@@ -516,7 +516,7 @@ namespace ILCompiler.DependencyAnalysis
                 case RelocType.IMAGE_REL_BASED_LOONGARCH64_PC:
                     return (long)GetLoongArch64PC12((uint*)location);
                 case RelocType.IMAGE_REL_BASED_LOONGARCH64_JIR:
-                    return (long)GetLoongArch64JIR((uint*)location);
+                    return GetLoongArch64JIR((uint*)location);
                 default:
                     Debug.Fail("Invalid RelocType: " + relocType);
                     return 0;

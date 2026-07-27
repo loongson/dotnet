@@ -364,6 +364,8 @@ namespace Internal.ReadyToRunConstants
 ");
             }
 
+            // TODO: add LoongArch64 SIMD.
+
             tr.Write(@"
                 default: throw new Exception(""Unknown architecture"");
             }

@@ -411,7 +411,7 @@ namespace Internal.JitInterface
 
             if (codeSize < _code.Length)
             {
-                if (_compilation.TypeSystemContext.Target.Architecture != TargetArchitecture.ARM64)
+                if (_compilation.TypeSystemContext.Target.Architecture != TargetArchitecture.ARM64 && _compilation.TypeSystemContext.Target.Architecture != TargetArchitecture.LoongArch64)
                 {
                     // For xarch/arm32, the generated code is sometimes smaller than the memory allocated.
                     // In that case, trim the codeBlock to the actual value.

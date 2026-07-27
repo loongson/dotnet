@@ -125,7 +125,7 @@ namespace Mono.Linker.Steps
 				if (module.IsCrossgened ()) {
 					module.Attributes |= ModuleAttributes.ILOnly;
 					module.Attributes ^= ModuleAttributes.ILLibrary;
-					module.Architecture = CalculateArchitecture (module.Architecture);
+					module.Architecture = TargetArchitecture.I386; // I386+ILOnly which ultimately translates to AnyCPU
 				}
 			}
 
