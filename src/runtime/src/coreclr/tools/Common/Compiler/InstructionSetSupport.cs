@@ -89,6 +89,13 @@ namespace ILCompiler
                 if (potentialType.Namespace != "System.Runtime.Intrinsics.Arm")
                     return "";
             }
+            else if (architecture == TargetArchitecture.LoongArch64)
+            {
+                if (potentialType.Name == "LoongArch64")
+                    potentialType = (MetadataType)potentialType.ContainingType;
+                if (potentialType.Namespace != "System.Runtime.Intrinsics.LoongArch64")
+                    return "";
+            }
             else
             {
                 throw new InternalCompilerErrorException("Unknown architecture");
@@ -139,6 +146,7 @@ namespace ILCompiler
             }
             else if (_targetArchitecture == TargetArchitecture.LoongArch64)
             {
+                // TODO: add SIMD for LoongArch64.
                 return SimdVectorLength.None;
             }
             else
@@ -382,6 +390,7 @@ namespace ILCompiler
                     supportedInstructionSets.AddInstructionSet(InstructionSet.ARM64_VectorT128);
                     break;
                 }
+                // TODO: add LoongArch64 SIMD.
             }
 
             return true;

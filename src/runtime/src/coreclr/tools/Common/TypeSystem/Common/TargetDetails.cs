@@ -124,6 +124,7 @@ namespace Internal.TypeSystem
                 }
                 else if (Architecture == TargetArchitecture.LoongArch64)
                 {
+                    // Corresponds to alignmet required for __m128 (there's no __m256/__m512)
                     return 16;
                 }
 
