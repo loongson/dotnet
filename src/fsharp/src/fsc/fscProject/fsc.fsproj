@@ -18,7 +18,7 @@
     <MibcFile>$(ArtifactsDir)mibc-proto\optimization.$(MibcCurrentMachineArcitecture).mibc.runtime\DotNet_FSharp.mibc</MibcFile>
 
     <TargetFramework>$(FSharpNetCoreProductTargetFramework)</TargetFramework>
-    <PublishReadyToRun>$(EnablePublishReadyToRun)</PublishReadyToRun>
+    <PublishReadyToRun>false</PublishReadyToRun>
     <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
     <ReadyToRunOptimizationData>$(MibcFile)</ReadyToRunOptimizationData>
   </PropertyGroup>

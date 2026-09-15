@@ -82,7 +82,7 @@ namespace ILCompiler.ObjectWriter
 
                 case TargetArchitecture.LoongArch64:
                     CodeAlignFactor = 1;
-                    DataAlignFactor = -4;
+                    DataAlignFactor = -4;      // FIXME: should confirm.
                     ReturnAddressRegister = 1; // RA
                     Instructions =
                     [

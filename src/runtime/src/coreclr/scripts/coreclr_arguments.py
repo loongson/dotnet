@@ -197,7 +197,7 @@ class CoreclrArguments:
     def provide_default_arch():
         """ Return a string representing the current processor architecture.
 
-            Returns one of: x64, x86, arm, armel, arm64.
+            Returns one of: x64, x86, arm, armel, arm64, loongarch64.
         """
 
         platform_machine = platform.machine().lower()
@@ -211,6 +211,8 @@ class CoreclrArguments:
             return "armel"
         elif platform_machine == "aarch64" or platform_machine == "arm64":
             return "arm64"
+        elif platform_machine == "loongarch64":
+            return "loongarch64"
         else:
             print("Unknown architecture: %s" % platform_machine)
             sys.exit(1)

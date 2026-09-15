@@ -168,7 +168,6 @@ typedef int __ptrace_request;
 
 #define ASSIGN_INTEGER_REGS \
     ASSIGN_REG(R0)     \
-    ASSIGN_REG(Tp)     \
     ASSIGN_REG(A0)     \
     ASSIGN_REG(A1)     \
     ASSIGN_REG(A2)     \
@@ -1102,6 +1101,7 @@ void CONTEXTFromNativeContext(const native_context_t *native, LPCONTEXT lpContex
             lpContext->Fcsr = fpr->fcsr;
             lpContext->Fcc  = fpr->fcc;
             memcpy(lpContext->F, fpr->regs, sizeof(fpr->regs));
+            lpContext->ContextFlags |= CONTEXT_LSX;
         }
         else if (LASX_CTX_MAGIC == info->magic)
         {
@@ -1109,6 +1109,7 @@ void CONTEXTFromNativeContext(const native_context_t *native, LPCONTEXT lpContex
             lpContext->Fcsr = fpr->fcsr;
             lpContext->Fcc  = fpr->fcc;
             memcpy(lpContext->F, fpr->regs, sizeof(fpr->regs));
+            lpContext->ContextFlags |= CONTEXT_LASX;
         }
         else
         {

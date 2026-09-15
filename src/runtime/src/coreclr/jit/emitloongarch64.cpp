@@ -119,7 +119,8 @@ inline bool emitter::emitInsMayWriteToGCReg(instruction ins)
 {
     assert(ins != INS_invalid);
     // NOTE: please reference the file "instrsloongarch64.h" for details !!!
-    return (INS_mov <= ins) && (ins <= INS_jirl) ? true : false;
+    return (((INS_mov <= ins) && (ins <= INS_jirl)) ||
+             (ins == INS_movfcsr2gr) || (ins == INS_movcf2gr)) ? true : false;
 }
 
 bool emitter::emitInsWritesToLclVarStackLoc(instrDesc* id)
@@ -2085,6 +2086,11 @@ void emitter::emitIns_R_AI(instruction  ins,
         id->idOpSize(EA_PTRSIZE);
     }
 
+#ifdef DEBUG
+    id->idDebugOnlyInfo()->idMemCookie = targetHandle;
+    id->idDebugOnlyInfo()->idFlags     = gtFlags;
+#endif
+
     id->idAddr()->iiaAddr = (BYTE*)addr;
     id->idCodeSize(8);
 
@@ -2504,8 +2510,8 @@ void emitter::emitIns_Call(EmitCallType          callType,
     //   else if (callType == EC_FUNC_TOKEN || callType == EC_FUNC_ADDR)
     //     if reloc:
     //             //pc + offset_38bits       # only when reloc.
-    //      pcaddu18i  t2, addr-hi20
-    //      jilr r0/1,t2,addr-lo18
+    //      pcaddu18i  t4, addr-hi20
+    //      jilr r0/1, t4, addr-lo18
     //
     //     else:
     //      lu12i_w  t2, dst_offset_lo32-hi
@@ -2559,10 +2565,13 @@ void emitter::emitIns_Call(EmitCallType          callType,
                    VarSetOps::ToString(emitComp, ((instrDescCGCA*)id)->idcGCvars));
         }
     }
-
-    id->idDebugOnlyInfo()->idMemCookie = (size_t)methHnd; // method token
-    id->idDebugOnlyInfo()->idCallSig   = sigInfo;
 #endif // DEBUG
+
+    if (m_debugInfoSize > 0)
+    {
+        INDEBUG(id->idDebugOnlyInfo()->idCallSig = sigInfo);
+        id->idDebugOnlyInfo()->idMemCookie = (size_t)methHnd; // method token
+    }
 
 #ifdef LATE_DISASM
     if (addr != nullptr)
@@ -2634,16 +2643,15 @@ unsigned emitter::emitOutputCall(insGroup* ig, BYTE* dst, instrDesc* id, code_t 
         // pc + offset_38bits
         //
         //   pcaddu18i  t4, addr-hi20
-        //   jilr r0/1,t4,addr-lo18
+        //   jilr r0/1, t4, addr-lo18
 
         emitOutput_Instr(dst, 0x1e000000 | (int)REG_DEFAULT_HELPER_CALL_TARGET);
 
         size_t addr = (size_t)(id->idAddr()->iiaAddr); // get addr.
 
         int reg2 = (int)addr & 1;
-        addr     = addr ^ 1;
+        addr -= reg2;
 
-        assert(isValidSimm38(addr - (ssize_t)dst));
         assert((addr & 3) == 0);
 
         dst += 4;
@@ -3825,6 +3833,12 @@ size_t emitter::emitOutputInstr(insGroup* ig, instrDesc* id, BYTE** dp)
     // for stores, but we ignore those cases here.)
     if (emitInsMayWriteToGCReg(ins)) // True if "id->idIns()" writes to a register than can hold GC ref.
     {
+        if (INS_OPTS_RELOC == id->idInsOpt())
+        {
+            // For relocation case (pcalau12i + addi.d/ld.d), the GCReg should update after calculation completed.
+            dstRW2 += 4;
+        }
+
         // We assume that "idReg1" is the primary destination register for all instructions
         if (id->idGCref() != GCT_NONE)
         {
