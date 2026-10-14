@@ -125,9 +125,11 @@ may be turned into `<PackageReference>` items in projects.
     <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.linux-x64" />
     <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.linux-arm" />
     <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.linux-arm64" />
+    <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.linux-loongarch64" />
     <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.linux-musl-x64" />
     <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.linux-musl-arm" />
     <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.linux-musl-arm64" />
+    <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.linux-musl-loongarch64" />
     <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.freebsd-x64" />
     <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.freebsd-arm64" />
     <_LatestRuntimePackageReference Include="Microsoft.NETCore.App.Crossgen2.$(TargetRuntimeIdentifier)" Condition=" '$(DotNetBuildSourceOnly)' == 'true' " />

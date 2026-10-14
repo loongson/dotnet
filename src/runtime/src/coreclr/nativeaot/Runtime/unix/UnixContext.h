@@ -160,9 +160,11 @@ struct UNIX_CONTEXT
     }
 
 #elif defined(TARGET_LOONGARCH64)
-
+    // sync with _CONTEXT in PalRedhawk.h
     uint64_t& R0();
+    uint64_t& Ra(); // R1
     uint64_t& R2();
+    uint64_t& Sp(); // R3
     uint64_t& R4();
     uint64_t& R5();
     uint64_t& R6();
@@ -181,6 +183,7 @@ struct UNIX_CONTEXT
     uint64_t& R19();
     uint64_t& R20();
     uint64_t& R21();
+    uint64_t& Fp(); // R22
     uint64_t& R23();
     uint64_t& R24();
     uint64_t& R25();
@@ -190,9 +193,6 @@ struct UNIX_CONTEXT
     uint64_t& R29();
     uint64_t& R30();
     uint64_t& R31();
-    uint64_t& Fp(); // R22
-    uint64_t& Ra(); // R1
-    uint64_t& Sp(); // R3
     uint64_t& Pc();
 
     uintptr_t GetIp() { return (uintptr_t)Pc(); }
