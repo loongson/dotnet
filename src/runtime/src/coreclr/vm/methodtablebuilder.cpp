@@ -1173,7 +1173,7 @@ BOOL MethodTableBuilder::CheckIfSIMDAndUpdateSize()
 {
     STANDARD_VM_CONTRACT;
 
-#if defined(TARGET_X86) || defined(TARGET_AMD64)
+#if defined(TARGET_X86) || defined(TARGET_AMD64) || defined(TARGET_LOONGARCH64)
     if (!bmtProp->fIsIntrinsicType)
         return false;
 
@@ -1192,6 +1192,7 @@ BOOL MethodTableBuilder::CheckIfSIMDAndUpdateSize()
     CORJIT_FLAGS CPUCompileFlags       = ExecutionManager::GetEEJitManager()->GetCPUCompileFlags();
     uint32_t     numInstanceFieldBytes = 16;
 
+#if defined(TARGET_X86) || defined(TARGET_AMD64)
     if (CPUCompileFlags.IsSet(InstructionSet_VectorT512))
     {
         numInstanceFieldBytes = 64;
@@ -1200,6 +1201,12 @@ BOOL MethodTableBuilder::CheckIfSIMDAndUpdateSize()
     {
         numInstanceFieldBytes = 32;
     }
+#elif defined(TARGET_LOONGARCH64)
+    if (CPUCompileFlags.IsSet(InstructionSet_VectorT256))
+    {
+        numInstanceFieldBytes = 32;
+    }
+#endif
 
     if (numInstanceFieldBytes != 16)
     {
@@ -1514,7 +1521,7 @@ MethodTableBuilder::BuildMethodTableThrowing(
         }
     }
 
-#if defined(TARGET_X86) || defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#if defined(TARGET_X86) || defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
     if (bmtProp->fIsIntrinsicType && !bmtGenerics->HasInstantiation())
     {
         LPCUTF8 nameSpace;
@@ -1542,6 +1549,9 @@ MethodTableBuilder::BuildMethodTableThrowing(
 #if defined(TARGET_ARM64)
         // All the funtions in System.Runtime.Intrinsics.Arm are hardware intrinsics.
         if (hr == S_OK && strcmp(nameSpace, "System.Runtime.Intrinsics.Arm") == 0)
+#elif defined(TARGET_LOONGARCH64)
+        // All the funtions in System.Runtime.Intrinsics.LoongArch are hardware intrinsics.
+        if (hr == S_OK && strcmp(nameSpace, "System.Runtime.Intrinsics.LoongArch") == 0)
 #else
         // All the funtions in System.Runtime.Intrinsics.X86 are hardware intrinsics.
         if (hr == S_OK && (strcmp(nameSpace, "System.Runtime.Intrinsics.X86") == 0))

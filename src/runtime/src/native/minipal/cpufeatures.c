@@ -66,6 +66,7 @@
 
 #endif // HAVE_HWPROBE_H
 
+
 #endif // !HOST_WINDOWS
 
 #if defined(HOST_UNIX)
@@ -613,6 +614,43 @@ int minipal_getcpufeatures(void)
 #endif // HOST_UNIX
 
 #endif // HOST_RISCV64
+
+#if defined(HOST_LOONGARCH64)
+
+#if defined(HOST_UNIX)
+
+#if HAVE_AUXV_HWCAP_H
+    unsigned long hwCap = getauxval(AT_HWCAP);
+
+    if (hwCap & HWCAP_LOONGARCH_LSX)
+        result |= LOONGARCH64IntrinsicConstants_LSX;
+    if (hwCap & HWCAP_LOONGARCH_LASX)
+        result |= LOONGARCH64IntrinsicConstants_LASX;
+#endif // HAVE_AUXV_HWCAP_H
+
+#define LAM_BH 0x8000000    // LAM_BH
+#define LAM_CAS 0x10000000  // LAMCAS
+#define FRECIPE 0x02000000  //FRECIPE
+
+    // CPUCFG.<world>.<FRECIPE>[25]
+    // CPUCFG.<world>.<LAM_BH>[27]
+    // CPUCFG.<world>.<LAM_CAS>[28]
+    uint32_t cpucfg = 0;
+    uint32_t world = 0x2;
+    asm volatile("cpucfg %0, %1\n\t"
+            :"=r"(cpucfg)
+            :"r"(world)
+            );
+
+    if (cpucfg & LAM_BH)
+        result |= LOONGARCH64IntrinsicConstants_LAM_BH;
+    if (cpucfg & LAM_CAS)
+        result |= LOONGARCH64IntrinsicConstants_LAM_CAS;
+    if (cpucfg & FRECIPE)
+        result |= LOONGARCH64IntrinsicConstants_FRECIPE;
+#endif // HOST_UNIX
+
+#endif // HOST_LOONGARCH64
 
     return result;
 }

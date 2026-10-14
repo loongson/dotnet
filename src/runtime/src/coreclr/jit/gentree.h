@@ -5358,7 +5358,7 @@ struct GenTreeCall final : public GenTree
     {
 #ifdef FEATURE_MULTIREG_RET
 #if defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
-        return (TypeIs(TYP_STRUCT)) && (gtReturnTypeDesc.GetReturnRegCount() > 1);
+        return (varTypeIsStruct(gtType)) && (gtReturnTypeDesc.GetReturnRegCount() > 1);
 #else
 
 #if defined(TARGET_X86) || defined(TARGET_ARM)
@@ -6759,7 +6759,9 @@ struct GenTreeVecCon : public GenTree
 #if defined(TARGET_XARCH)
         simd32_t gtSimd32Val;
         simd64_t gtSimd64Val;
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64)
+        simd32_t gtSimd32Val;
+#endif // TARGET_XARCH && TARGET_LOONGARCH64
 
         simd_t gtSimdVal;
     };
@@ -6794,6 +6796,10 @@ struct GenTreeVecCon : public GenTree
             case NI_Vector64_Create:
             case NI_Vector64_CreateScalar:
             case NI_Vector64_CreateScalarUnsafe:
+#elif defined(TARGET_LOONGARCH64)
+            case NI_Vector256_Create:
+            case NI_Vector256_CreateScalar:
+            case NI_Vector256_CreateScalarUnsafe:
 #endif
             {
                 // Zero out the simdVal
@@ -6809,6 +6815,8 @@ struct GenTreeVecCon : public GenTree
                         (intrinsic != NI_Vector512_CreateScalar))
 #elif defined(TARGET_ARM64)
                     if ((intrinsic != NI_Vector64_CreateScalar) && (intrinsic != NI_Vector128_CreateScalar))
+#elif defined(TARGET_LOONGARCH64)
+                    if ((intrinsic != NI_Vector128_CreateScalar) && (intrinsic != NI_Vector256_CreateScalar))
 #endif
                     {
                         // Now assign the rest of the arguments.
@@ -7027,7 +7035,15 @@ struct GenTreeVecCon : public GenTree
                 gtSimd64Val = result;
                 break;
             }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+            case TYP_SIMD32:
+            {
+                simd32_t result = {};
+                BroadcastConstantToSimd<simd32_t, TBase>(&result, scalar);
+                gtSimd32Val = result;
+                break;
+            }
+#endif // TARGET_LOONGARCH64
 
             default:
             {
@@ -7083,7 +7099,15 @@ struct GenTreeVecCon : public GenTree
                 gtSimd64Val = result;
                 break;
             }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+            case TYP_SIMD32:
+            {
+                simd32_t result = {};
+                EvaluateWithElementFloating<simd32_t>(simdBaseType, &result, gtSimd32Val, index, value);
+                gtSimd32Val = result;
+                break;
+            }
+#endif // TARGET_LOONGARCH64
 
             default:
             {
@@ -7136,7 +7160,15 @@ struct GenTreeVecCon : public GenTree
                 gtSimd64Val = result;
                 break;
             }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+            case TYP_SIMD32:
+            {
+                simd32_t result = {};
+                EvaluateWithElementIntegral<simd32_t>(simdBaseType, &result, gtSimd32Val, index, value);
+                gtSimd32Val = result;
+                break;
+            }
+#endif // TARGET_LOONGARCH64
 
             default:
             {
@@ -7174,8 +7206,12 @@ struct GenTreeVecCon : public GenTree
             {
                 return gtSimd64Val.IsAllBitsSet();
             }
-
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+            case TYP_SIMD32:
+            {
+                return gtSimd32Val.IsAllBitsSet();
+            }
+#endif // TARGET_LOONGARCH64
 
             default:
             {
@@ -7222,8 +7258,12 @@ struct GenTreeVecCon : public GenTree
             {
                 return left->gtSimd64Val == right->gtSimd64Val;
             }
-
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+            case TYP_SIMD32:
+            {
+                return left->gtSimd32Val == right->gtSimd32Val;
+            }
+#endif // TARGET_LOONGARCH64
 
             default:
             {
@@ -7271,8 +7311,12 @@ struct GenTreeVecCon : public GenTree
             {
                 return gtSimd64Val.IsZero();
             }
-
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+            case TYP_SIMD32:
+            {
+                return gtSimd32Val.IsZero();
+            }
+#endif // TARGET_LOONGARCH64
 
             default:
             {
@@ -7310,7 +7354,12 @@ struct GenTreeVecCon : public GenTree
             {
                 return EvaluateGetElementFloating<simd64_t>(simdBaseType, gtSimd64Val, index);
             }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+            case TYP_SIMD32:
+            {
+                return EvaluateGetElementFloating<simd32_t>(simdBaseType, gtSimd32Val, index);
+            }
+#endif // TARGET_LOONGARCH64
 
             default:
             {
@@ -7348,7 +7397,12 @@ struct GenTreeVecCon : public GenTree
             {
                 return EvaluateGetElementIntegral<simd64_t>(simdBaseType, gtSimd64Val, index);
             }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+            case TYP_SIMD32:
+            {
+                return EvaluateGetElementIntegral<simd32_t>(simdBaseType, gtSimd32Val, index);
+            }
+#endif // TARGET_LOONGARCH64
 
             default:
             {
@@ -7426,6 +7480,8 @@ struct GenTreeVecCon : public GenTree
 
 #if defined(TARGET_XARCH)
         assert(sizeof(simd_t) == sizeof(simd64_t));
+#elif defined(TARGET_LOONGARCH64)
+        assert(sizeof(simd_t) == sizeof(simd32_t));
 #else
         assert(sizeof(simd_t) == sizeof(simd16_t));
 #endif

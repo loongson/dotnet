@@ -29,6 +29,7 @@ System.IO.Hashing.XxHash32</PackageDescription>
 
   <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
     <Compile Include="System\IO\Hashing\Crc32.Arm.cs" />
+    <Compile Include="System\IO\Hashing\Crc32.LoongArch64.cs" />
     <Compile Include="System\IO\Hashing\Crc32.Vectorized.cs" />
     <Compile Include="System\IO\Hashing\Crc64.Vectorized.cs" />
     <Compile Include="System\IO\Hashing\VectorHelper.cs" />

@@ -12,6 +12,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.X86;
+using System.Runtime.Intrinsics.LoongArch;
 using System.Runtime.Versioning;
 
 namespace System
@@ -217,6 +218,11 @@ namespace System
                 low = a * b;
                 return ArmBase.Arm64.MultiplyHigh(a, b);
             }
+            else if (LoongArch64Base.IsSupported)
+            {
+                low = a * b;
+                return LoongArch64Base.MultiplyHigh(a, b);
+            }
 
             return SoftwareFallback(a, b, out low);
 
@@ -255,6 +261,11 @@ namespace System
             {
                 low = a * b;
                 return ArmBase.Arm64.MultiplyHigh(a, b);
+            }
+            else if (LoongArch64Base.IsSupported)
+            {
+                low = a * b;
+                return LoongArch64Base.MultiplyHigh(a, b);
             }
 
             ulong high = BigMul((ulong)a, (ulong)b, out ulong ulow);
@@ -1273,7 +1284,7 @@ namespace System
         [Intrinsic]
         public static double ReciprocalSqrtEstimate(double d)
         {
-#if MONO || TARGET_LOONGARCH64
+#if MONO
             return 1.0 / Sqrt(d);
 #else
             return ReciprocalSqrtEstimate(d);

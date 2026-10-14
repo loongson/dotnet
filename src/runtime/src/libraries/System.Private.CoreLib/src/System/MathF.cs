@@ -334,7 +334,7 @@ namespace System
         [Intrinsic]
         public static float ReciprocalSqrtEstimate(float x)
         {
-#if MONO || TARGET_LOONGARCH64
+#if MONO
             return 1.0f / Sqrt(x);
 #else
             return ReciprocalSqrtEstimate(x);

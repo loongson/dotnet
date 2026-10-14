@@ -310,6 +310,14 @@ bool IntegralRange::Contains(int64_t value) const
                     // Note: No advantage in using a precise range for IntegralRange.
                     // Example: IntCns = 42 gives [0..127] with a non -precise range, [42,42] with a precise range.
                     return {SymbolicIntegerValue::Zero, SymbolicIntegerValue::ByteMax};
+#elif defined(TARGET_LOONGARCH64)
+                case NI_LoongArch64Base_LeadingZeroCount:
+                case NI_LoongArch64Base_LeadingSignCount:
+                case NI_LoongArch64Base_TrailingZeroCount:
+                case NI_LSX_PopCount:
+                case NI_LASX_PopCount:
+                    // TODO-Casts: specify more precise ranges once "IntegralRange" supports them.
+                    return {SymbolicIntegerValue::Zero, SymbolicIntegerValue::ByteMax};
 #else
 #error Unsupported platform
 #endif
@@ -3019,8 +3027,18 @@ GenTree* Compiler::optVNBasedFoldConstExpr(BasicBlock* block, GenTree* parent, G
             break;
         }
         break;
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            simd32_t value = vnStore->ConstantValue<simd32_t>(vnCns);
 
-#endif // TARGET_XARCH
+            GenTreeVecCon* vecCon = gtNewVconNode(tree->TypeGet());
+            memcpy(&vecCon->gtSimdVal, &value, sizeof(simd32_t));
+
+            conValTree = vecCon;
+            break;
+        }
+#endif // TARGET_LOONGARCH64
 #endif // FEATURE_SIMD
 
 #if defined(FEATURE_MASKED_HW_INTRINSICS)

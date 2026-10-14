@@ -69,6 +69,38 @@ enum HWIntrinsicCategory : uint8_t
     // - have to be addressed specially
     HW_Category_Special
 };
+#elif defined(TARGET_LOONGARCH64)
+enum HWIntrinsicCategory : uint8_t
+{
+       // - vector or scalar intrinsics that operate on one-or-many SIMD registers
+    HW_Category_SIMD,
+
+    // Scalar intrinsics operate on general purpose registers (e.g. clo, clz )
+    HW_Category_Scalar,
+
+    // Helper intrinsics
+    // - do not directly correspond to a instruction, such as Vector64.AllBitsSet
+    HW_Category_Helper,
+
+    // Memory access intrinsics
+    HW_Category_MemoryLoad,
+    HW_Category_MemoryStore,
+
+    // These are LoongArch64 that share some features in a given category.
+    //HW_Category_1R,
+    HW_Category_2R,
+    HW_Category_3R,
+    HW_Category_4R,
+    HW_Category_1R_1I,
+    HW_Category_2R_1I,
+    HW_Category_2R_2I,
+    //HW_Category_3R_1I,
+
+    // Special intrinsics
+    // - have to be addressed specially
+    HW_Category_Special
+
+};
 #else
 #error Unsupported platform
 #endif
@@ -237,7 +269,29 @@ enum HWIntrinsicFlag : unsigned int
     // type TYP_MASK, and this other intrinsic will produces a value of this type. Used in morph to convert vector
     // operations into mask operations when the intrinsic is operating on mask vectors (mainly bitwise operations).
     HW_Flag_HasAllMaskVariant = 0x4000000,
+#elif defined(TARGET_LOONGARCH64)
+    // The intrinsic has an immediate operand
+    // - the value can be (and should be) encoded in a corresponding instruction when the operand value is constant
+    HW_Flag_HasImmediateOperand = 0x400,
 
+    // The intrinsic has read/modify/write semantics in multiple-operands form.
+    HW_Flag_HasRMWSemantics = 0x800,
+
+    // The intrinsic operates on the lower part of a SIMD register
+    // - the upper part of the source registers are ignored
+    // - the upper part of the destination register is zeroed
+    HW_Flag_SIMDScalar = 0x1000,
+
+    // The intrinsic supports some sort of containment analysis
+    HW_Flag_SupportsContainment = 0x2000,
+
+    // These are LSX/LASX that share some features (e.g. immediate operand value that canbe MakeSrcContained.)
+    HW_Flag_MaybeCnsIntOrISrcContained = 0x4000,
+
+   // Returns Per-Element Mask
+    // the intrinsic returns a vector containing elements that are either "all bits set" or "all bits clear"
+    // this output can be used as a per-element mask
+    HW_Flag_ReturnsPerElementMask = 0x10000,
 #else
 #error Unsupported platform
 #endif
@@ -539,6 +593,9 @@ struct HWIntrinsicInfo
 #elif defined(TARGET_ARM64)
     static void lookupImmBounds(
         NamedIntrinsic intrinsic, int simdSize, var_types baseType, int immNumber, int* lowerBound, int* upperBound);
+#elif defined(TARGET_LOONGARCH64)
+    static void lookupImmBounds(
+        NamedIntrinsic intrinsic, int simdSize, var_types baseType, int immNumber, int* lowerBound, int* upperBound);
 #else
 #error Unsupported platform
 #endif
@@ -671,7 +728,7 @@ struct HWIntrinsicInfo
         HWIntrinsicFlag flags = lookupFlags(id);
 #if defined(TARGET_XARCH)
         return (flags & HW_Flag_MaybeCommutative) != 0;
-#elif defined(TARGET_ARM64)
+#elif defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
         return false;
 #else
 #error Unsupported platform
@@ -689,7 +746,7 @@ struct HWIntrinsicInfo
         HWIntrinsicFlag flags = lookupFlags(id);
 #if defined(TARGET_XARCH)
         return (flags & HW_Flag_NoContainment) == 0;
-#elif defined(TARGET_ARM64)
+#elif defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
         return (flags & HW_Flag_SupportsContainment) != 0;
 #else
 #error Unsupported platform
@@ -699,7 +756,7 @@ struct HWIntrinsicInfo
     static bool ReturnsPerElementMask(NamedIntrinsic id)
     {
         HWIntrinsicFlag flags = lookupFlags(id);
-#if defined(TARGET_XARCH) || defined(TARGET_ARM64)
+#if defined(TARGET_XARCH) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
         return (flags & HW_Flag_ReturnsPerElementMask) != 0;
 #else
 #error Unsupported platform
@@ -796,6 +853,8 @@ struct HWIntrinsicInfo
 #if defined(TARGET_XARCH)
         return (flags & HW_Flag_NoRMWSemantics) == 0;
 #elif defined(TARGET_ARM64)
+        return (flags & HW_Flag_HasRMWSemantics) != 0;
+#elif defined(TARGET_LOONGARCH64)
         return (flags & HW_Flag_HasRMWSemantics) != 0;
 #else
 #error Unsupported platform
@@ -925,6 +984,9 @@ struct HWIntrinsicInfo
             case NI_Vector256_Create:
             case NI_Vector512_Create:
 #endif // TARGET_XARCH
+#if defined(TARGET_LOONGARCH64)
+            case NI_Vector256_Create:
+#endif // TARGET_LOONGARCH64
                 return true;
             default:
                 return false;
@@ -943,6 +1005,9 @@ struct HWIntrinsicInfo
             case NI_Vector256_CreateScalar:
             case NI_Vector512_CreateScalar:
 #endif // TARGET_XARCH
+#if defined(TARGET_LOONGARCH64)
+            case NI_Vector256_CreateScalar:
+#endif // TARGET_LOONGARCH64
                 return true;
             default:
                 return false;
@@ -961,6 +1026,9 @@ struct HWIntrinsicInfo
             case NI_Vector256_CreateScalarUnsafe:
             case NI_Vector512_CreateScalarUnsafe:
 #endif // TARGET_XARCH
+#if defined(TARGET_LOONGARCH64)
+            case NI_Vector256_CreateScalarUnsafe:
+#endif // TARGET_LOONGARCH64
                 return true;
             default:
                 return false;
@@ -1005,7 +1073,7 @@ struct HWIntrinsicInfo
 
     static bool HasImmediateOperand(NamedIntrinsic id)
     {
-#if defined(TARGET_ARM64)
+#if defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
         const HWIntrinsicFlag flags = lookupFlags(id);
         return ((flags & HW_Flag_HasImmediateOperand) != 0);
 #elif defined(TARGET_XARCH)
@@ -1294,6 +1362,21 @@ struct HWIntrinsicInfo
         }
     }
 #endif // TARGET_ARM64
+
+#if defined(TARGET_LOONGARCH64)
+    static void GetImmOpsPositions(NamedIntrinsic id, CORINFO_SIG_INFO* sig, int* imm1Pos, int* imm2Pos)
+    {
+        assert(!"SIMD unimplemented yet on LA");
+    }
+
+    static bool MaybeSrcContained(NamedIntrinsic id)
+    {
+        const HWIntrinsicFlag flags = lookupFlags(id);
+        return (flags & HW_Flag_MaybeCnsIntOrISrcContained) != 0;
+    }
+
+#endif
+
 };
 
 #ifdef TARGET_ARM64
@@ -1401,6 +1484,112 @@ private:
 };
 
 #endif // TARGET_ARM64
+
+#ifdef TARGET_LOONGARCH64
+
+struct HWIntrinsic final
+{
+    HWIntrinsic(const GenTreeHWIntrinsic* node)
+        : op1(nullptr)
+        , op2(nullptr)
+        , op3(nullptr)
+        , op4(nullptr)
+        , op5(nullptr)
+        , numOperands(0)
+        , baseType(TYP_UNDEF)
+    {
+        assert(node != nullptr);
+
+        id       = node->GetHWIntrinsicId();
+        category = HWIntrinsicInfo::lookupCategory(id);
+
+        assert(HWIntrinsicInfo::RequiresCodegen(id));
+
+        InitializeOperands(node);
+        InitializeBaseType(node);
+    }
+
+    bool codeGenIsTableDriven() const
+    {
+        // TODO-Arm64-Cleanup - make more categories to the table-driven framework
+        bool isTableDrivenCategory = category != HW_Category_Helper;
+        bool isTableDrivenFlag     = !HWIntrinsicInfo::HasSpecialCodegen(id);
+
+        return isTableDrivenCategory && isTableDrivenFlag;
+    }
+
+    NamedIntrinsic      id;
+    HWIntrinsicCategory category;
+    GenTree*            op1;
+    GenTree*            op2;
+    GenTree*            op3;
+    GenTree*            op4;
+    GenTree*            op5;
+    size_t              numOperands;
+    var_types           baseType;
+
+private:
+    void InitializeOperands(const GenTreeHWIntrinsic* node)
+    {
+        numOperands = node->GetOperandCount();
+
+        switch (numOperands)
+        {
+            case 5:
+                op5 = node->Op(5);
+                FALLTHROUGH;
+            case 4:
+                op4 = node->Op(4);
+                FALLTHROUGH;
+            case 3:
+                op3 = node->Op(3);
+                FALLTHROUGH;
+            case 2:
+                op2 = node->Op(2);
+                FALLTHROUGH;
+            case 1:
+                op1 = node->Op(1);
+                FALLTHROUGH;
+            case 0:
+                break;
+
+            default:
+                unreached();
+        }
+    }
+
+    void InitializeBaseType(const GenTreeHWIntrinsic* node)
+    {
+        baseType = node->GetSimdBaseType();
+
+        if (baseType == TYP_UNKNOWN)
+        {
+            assert((category == HW_Category_Scalar) || (category == HW_Category_Special));
+
+            if (HWIntrinsicInfo::BaseTypeFromFirstArg(id))
+            {
+                assert(op1 != nullptr);
+                baseType = op1->TypeGet();
+            }
+            else if (HWIntrinsicInfo::BaseTypeFromSecondArg(id))
+            {
+                assert(op2 != nullptr);
+                baseType = op2->TypeGet();
+            }
+            else
+            {
+                baseType = node->TypeGet();
+            }
+
+            if (category == HW_Category_Scalar)
+            {
+                baseType = genActualType(baseType);
+            }
+        }
+    }
+};
+
+#endif // TARGET_LOONGARCH64
 
 #endif // FEATURE_HW_INTRINSICS
 

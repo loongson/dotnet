@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.X86;
+using System.Runtime.Intrinsics.LoongArch;
 
 namespace System.Numerics
 {
@@ -1590,6 +1591,23 @@ namespace System.Numerics
                     result.Y = Sse.UnpackHigh(lowerXZ, lowerYW).AsVector4();        // x[1], y[1], z[1], w[1]
                     result.Z = Sse.UnpackLow(upperXZ, upperYW).AsVector4();         // x[2], y[2], z[2], w[2]
                     result.W = Sse.UnpackHigh(upperXZ, upperYW).AsVector4();        // x[3], y[3], z[3], w[3]
+                }
+                else if (Lsx.IsSupported)
+                {
+                    Vector128<float> x = matrix.X.AsVector128();
+                    Vector128<float> y = matrix.Y.AsVector128();
+                    Vector128<float> z = matrix.Z.AsVector128();
+                    Vector128<float> w = matrix.W.AsVector128();
+
+                    Vector128<float> lowerXZ = Lsx.VectorElementsFusionLower(x, z);          // x[0], z[0], x[1], z[1]
+                    Vector128<float> lowerYW = Lsx.VectorElementsFusionLower(y, w);          // y[0], w[0], y[1], w[1]
+                    Vector128<float> upperXZ = Lsx.VectorElementsFusionHight(x, z);          // x[2], z[2], x[3], z[3]
+                    Vector128<float> upperYW = Lsx.VectorElementsFusionHight(y, w);          // y[2], w[2], y[3], z[3]
+
+                    result.X = Lsx.VectorElementsFusionLower(lowerXZ, lowerYW).AsVector4();  // x[0], y[0], z[0], w[0]
+                    result.Y = Lsx.VectorElementsFusionHight(lowerXZ, lowerYW).AsVector4();  // x[1], y[1], z[1], w[1]
+                    result.Z = Lsx.VectorElementsFusionLower(upperXZ, upperYW).AsVector4();  // x[2], y[2], z[2], w[2]
+                    result.W = Lsx.VectorElementsFusionHight(upperXZ, upperYW).AsVector4();  // x[3], y[3], z[3], w[3]
                 }
                 else
                 {

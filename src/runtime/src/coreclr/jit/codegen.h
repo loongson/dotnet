@@ -738,7 +738,9 @@ protected:
     void genSetRegToConst(regNumber targetReg, var_types targetType, GenTree* tree);
 #if defined(FEATURE_SIMD)
     void genSetRegToConst(regNumber targetReg, var_types targetType, simd_t* val);
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
     void genSetRegToConst(regNumber targetReg, var_types targetType, simdmask_t* val);
+#endif
 #endif
     void genCodeForTreeNode(GenTree* treeNode);
     void genCodeForBinary(GenTreeOp* treeNode);
@@ -892,7 +894,7 @@ protected:
 #endif
 
 #ifdef FEATURE_SIMD
-#ifdef TARGET_ARM64
+#if defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
     insOpts genGetSimdInsOpt(emitAttr size, var_types elementType);
 #endif
     void genSimdUpperSave(GenTreeIntrinsic* node);
@@ -1023,6 +1025,67 @@ protected:
     };
 
 #endif // TARGET_ARM64
+
+#ifdef TARGET_LOONGARCH64
+    //FIXME for LA-SIMD: maybe this is not needed for LA.  qqqqq
+    class HWIntrinsicImmOpHelper final
+    {
+    public:
+        HWIntrinsicImmOpHelper(CodeGen* codeGen, GenTree* immOp, GenTreeHWIntrinsic* intrin, int numInstrs = 1);
+
+        HWIntrinsicImmOpHelper(CodeGen*            codeGen,
+                               regNumber           immReg,
+                               int                 immLowerBound,
+                               int                 immUpperBound,
+                               GenTreeHWIntrinsic* intrin,
+                               int                 numInstrs = 1);
+
+        void EmitBegin();
+        void EmitCaseEnd();
+
+        // Returns true after the last call to EmitCaseEnd() (i.e. this signals that code generation is done).
+        bool Done() const
+        {
+            return (immValue > immUpperBound);
+        }
+
+        // Returns a value of the immediate operand that should be used for a case.
+        int ImmValue() const
+        {
+            return immValue;
+        }
+
+    private:
+        // Returns true if immOp is non contained immediate (i.e. the value of the immediate operand is enregistered in
+        // nonConstImmReg).
+        bool NonConstImmOp() const
+        {
+            return nonConstImmReg != REG_NA;
+        }
+
+        // Returns true if a non constant immediate operand can be either 0 or 1.
+        bool TestImmOpZeroOrOne() const
+        {
+            assert(NonConstImmOp());
+            return (immLowerBound == 0) && (immUpperBound == 1);
+        }
+
+        emitter* GetEmitter() const
+        {
+            return codeGen->GetEmitter();
+        }
+
+        CodeGen* const codeGen;
+        BasicBlock*    endLabel;
+        BasicBlock*    nonZeroLabel;
+        int            immValue;
+        int            immLowerBound;
+        int            immUpperBound;
+        regNumber      nonConstImmReg;
+        regNumber      branchTargetReg;
+        int            numInstrs;
+    };
+#endif // TARGET_LOONGARCH64
 
 #endif // FEATURE_HW_INTRINSICS
 

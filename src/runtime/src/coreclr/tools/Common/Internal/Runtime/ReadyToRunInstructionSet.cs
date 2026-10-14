@@ -94,6 +94,12 @@ namespace Internal.ReadyToRunConstants
         Avx512Vp2intersect_VL=81,
         Avx512Vpopcntdq=82,
         Avx512Vpopcntdq_VL=83,
+        LoongArch64Base=84,
+        Lam_BH=85,
+        Lam_CAS=86,
+        Lsx=87,
+        Lasx=88,
+        Frecipe=89,
 
     }
 }

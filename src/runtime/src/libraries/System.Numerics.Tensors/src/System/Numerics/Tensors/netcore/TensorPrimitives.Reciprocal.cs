@@ -4,6 +4,7 @@
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.X86;
+using System.Runtime.Intrinsics.LoongArch;
 
 namespace System.Numerics.Tensors
 {
@@ -146,6 +147,12 @@ namespace System.Numerics.Tensors
                     if (typeof(T) == typeof(double)) return AdvSimd.Arm64.ReciprocalEstimate(x.AsDouble()).As<double, T>();
                 }
 
+                if (Lsx.IsSupported)
+                {
+                    if (typeof(T) == typeof(float)) return Lsx.Reciprocal(x.AsSingle()).As<float, T>();
+                    if (typeof(T) == typeof(double)) return Lsx.Reciprocal(x.AsDouble()).As<double, T>();
+                }
+
                 return Vector128<T>.One / x;
             }
 
@@ -162,6 +169,12 @@ namespace System.Numerics.Tensors
                 if (Avx.IsSupported)
                 {
                     if (typeof(T) == typeof(float)) return Avx.Reciprocal(x.AsSingle()).As<float, T>();
+                }
+
+                if (Lasx.IsSupported)
+                {
+                    if (typeof(T) == typeof(float)) return Lasx.Reciprocal(x.AsSingle()).As<float, T>();
+                    if (typeof(T) == typeof(double)) return Lasx.Reciprocal(x.AsDouble()).As<double, T>();
                 }
 
                 return Vector256<T>.One / x;
@@ -212,6 +225,12 @@ namespace System.Numerics.Tensors
                     if (typeof(T) == typeof(double)) return AdvSimd.Arm64.ReciprocalSquareRootEstimate(x.AsDouble()).As<double, T>();
                 }
 
+                if (Lsx.IsSupported)
+                {
+                    if (typeof(T) == typeof(float)) return Lsx.ReciprocalSqrt(x.AsSingle()).As<float, T>();
+                    if (typeof(T) == typeof(double)) return Lsx.ReciprocalSqrt(x.AsDouble()).As<double, T>();
+                }
+
                 return Vector128<T>.One / Vector128.Sqrt(x);
             }
 
@@ -228,6 +247,12 @@ namespace System.Numerics.Tensors
                 if (Avx.IsSupported)
                 {
                     if (typeof(T) == typeof(float)) return Avx.ReciprocalSqrt(x.AsSingle()).As<float, T>();
+                }
+
+                if (Lasx.IsSupported)
+                {
+                    if (typeof(T) == typeof(float)) return Lasx.ReciprocalSqrt(x.AsSingle()).As<float, T>();
+                    if (typeof(T) == typeof(double)) return Lasx.ReciprocalSqrt(x.AsDouble()).As<double, T>();
                 }
 
                 return Vector256<T>.One / Vector256.Sqrt(x);

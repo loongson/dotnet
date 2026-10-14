@@ -438,6 +438,9 @@ ValueNumStore::ValueNumStore(Compiler* comp, CompAllocator alloc)
     , m_simd32CnsMap(nullptr)
     , m_simd64CnsMap(nullptr)
 #endif // TARGET_XARCH
+#if defined(TARGET_LOONGARCH64)
+    , m_simd32CnsMap(nullptr)
+#endif // TARGET_LOONGARCH64
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
     , m_simdMaskCnsMap(nullptr)
 #endif // FEATURE_MASKED_HW_INTRINSICS
@@ -1718,7 +1721,13 @@ ValueNumStore::Chunk::Chunk(CompAllocator alloc, ValueNum* pNextBaseVN, var_type
                     m_defs = new (alloc) Alloc<TYP_SIMD64>::Type[ChunkSize];
                     break;
                 }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+                case TYP_SIMD32:
+                {
+                    m_defs = new (alloc) Alloc<TYP_SIMD32>::Type[ChunkSize];
+                    break;
+                }
+#endif // TARGET_LOONGARCH64
 
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
                 case TYP_MASK:
@@ -1895,6 +1904,13 @@ ValueNum ValueNumStore::VNForSimd64Con(const simd64_t& cnsVal)
 }
 #endif // TARGET_XARCH
 
+#if defined(TARGET_LOONGARCH64)
+ValueNum ValueNumStore::VNForSimd32Con(const simd32_t& cnsVal)
+{
+    return VnForConst(cnsVal, GetSimd32CnsMap(), TYP_SIMD32);
+}
+#endif
+
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
 ValueNum ValueNumStore::VNForSimdMaskCon(const simdmask_t& cnsVal)
 {
@@ -2001,7 +2017,13 @@ ValueNum ValueNumStore::VNForGenericCon(var_types typ, uint8_t* cnsVal)
             READ_VALUE(simd64_t);
             return VNForSimd64Con(val);
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            READ_VALUE(simd32_t);
+            return VNForSimd32Con(val);
+        }
+#endif // TARGET_LOONGARCH64
 
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
         case TYP_MASK:
@@ -2122,7 +2144,12 @@ ValueNum ValueNumStore::VNZeroForType(var_types typ)
         {
             return VNForSimd64Con(simd64_t::Zero());
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            return VNForSimd32Con(simd32_t::Zero());
+        }
+#endif // TARGET_LOONGARCH64
 
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
         case TYP_MASK:
@@ -2219,7 +2246,12 @@ ValueNum ValueNumStore::VNAllBitsForType(var_types typ, unsigned elementCount)
         {
             return VNForSimd64Con(simd64_t::AllBitsSet());
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            return VNForSimd32Con(simd32_t::AllBitsSet());
+        }
+#endif // TARGET_LOONGARCH64
 
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
         case TYP_MASK:
@@ -2338,8 +2370,13 @@ ValueNum ValueNumStore::VNBroadcastForSimdType(var_types simdType, var_types sim
             simd64_t result = BroadcastConstantToSimd<simd64_t>(this, simdBaseType, valVN);
             return VNForSimd64Con(result);
         }
-
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            simd32_t result = BroadcastConstantToSimd<simd32_t>(this, simdBaseType, valVN);
+            return VNForSimd32Con(result);
+        }
+#endif // TARGET_LOONGARCH64
 
         default:
         {
@@ -2406,7 +2443,14 @@ bool ValueNumStore::VNIsVectorNaN(var_types simdType, var_types simdBaseType, Va
             memcpy(&vector, &tmp, genTypeSize(simdType));
             break;
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            simd32_t tmp = GetConstantSimd32(valVN);
+            memcpy(&vector, &tmp, genTypeSize(simdType));
+            break;
+        }
+#endif // TARGET_LOONGARCH64
 
         default:
         {
@@ -2472,7 +2516,14 @@ bool ValueNumStore::VNIsVectorNegativeZero(var_types simdType, var_types simdBas
             memcpy(&vector, &tmp, genTypeSize(simdType));
             break;
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            simd32_t tmp = GetConstantSimd32(valVN);
+            memcpy(&vector, &tmp, genTypeSize(simdType));
+            break;
+        }
+#endif // TARGET_LOONGARCH64
 
         default:
         {
@@ -4040,6 +4091,18 @@ simd64_t ValueNumStore::GetConstantSimd64(ValueNum argVN)
     return ConstantValue<simd64_t>(argVN);
 }
 #endif // TARGET_XARCH
+
+#if defined(TARGET_LOONGARCH64)
+// Given a simd32 constant value number return its value as a simd32.
+//
+simd32_t ValueNumStore::GetConstantSimd32(ValueNum argVN)
+{
+    assert(IsVNConstant(argVN));
+    assert(TypeOfVN(argVN) == TYP_SIMD32);
+
+    return ConstantValue<simd32_t>(argVN);
+}
+#endif // TARGET_LOONGARCH64
 
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
 // Given a simdmask constant value number return its value as a simdmask.
@@ -6614,7 +6677,7 @@ bool ValueNumStore::IsVNInt32Constant(ValueNum vn)
 //
 bool ValueNumStore::IsVNLog2(ValueNum vn, int* upperBound)
 {
-#if defined(FEATURE_HW_INTRINSICS) && (defined(TARGET_XARCH) || defined(TARGET_ARM64))
+#if defined(FEATURE_HW_INTRINSICS) && (defined(TARGET_XARCH) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64))
     int      xorBy;
     ValueNum op;
     // First, see if it's "X ^ 31" or "X ^ 63".
@@ -6625,8 +6688,10 @@ bool ValueNumStore::IsVNLog2(ValueNum vn, int* upperBound)
 
 #ifdef TARGET_XARCH
         VNFunc lzcntFunc = (xorBy == 31) ? VNF_HWI_AVX2_LeadingZeroCount : VNF_HWI_AVX2_X64_LeadingZeroCount;
-#else
+#elif defined(TARGET_ARM64)
         VNFunc lzcntFunc = (xorBy == 31) ? VNF_HWI_ArmBase_LeadingZeroCount : VNF_HWI_ArmBase_Arm64_LeadingZeroCount;
+#elif defined(TARGET_LOONGARCH64)
+        VNFunc lzcntFunc = VNF_HWI_LoongArch64Base_LeadingZeroCount;
 #endif
         // Next, see if it's "LZCNT32(X | 1)" or "LZCNT64(X | 1)".
         int orBy;
@@ -6716,6 +6781,17 @@ bool ValueNumStore::IsVNNeverNegative(ValueNum vn)
                 case VNF_HWI_ArmBase_LeadingZeroCount:
                 case VNF_HWI_ArmBase_Arm64_LeadingZeroCount:
                 case VNF_HWI_ArmBase_Arm64_LeadingSignCount:
+                    return VNVisit::Continue;
+#elif defined(TARGET_LOONGARCH64)
+                case VNF_HWI_LSX_LeadingZeroCount:
+                case VNF_HWI_LSX_LeadingSignCount:
+                case VNF_HWI_LSX_PopCount:
+                case VNF_HWI_LASX_LeadingZeroCount:
+                case VNF_HWI_LASX_LeadingSignCount:
+                case VNF_HWI_LASX_PopCount:
+                case VNF_HWI_LoongArch64Base_LeadingZeroCount:
+                case VNF_HWI_LoongArch64Base_LeadingSignCount:
+                case VNF_HWI_LoongArch64Base_TrailingZeroCount:
                     return VNVisit::Continue;
 #endif
                 case VNF_XOR:
@@ -7523,6 +7599,20 @@ simd64_t GetConstantSimd64(ValueNumStore* vns, var_types baseType, ValueNum argV
 }
 #endif // TARGET_XARCH
 
+#if defined(TARGET_LOONGARCH64)
+simd32_t GetConstantSimd32(ValueNumStore* vns, var_types baseType, ValueNum argVN)
+{
+    assert(vns->IsVNConstant(argVN));
+
+    if (vns->TypeOfVN(argVN) == TYP_SIMD32)
+    {
+        return vns->GetConstantSimd32(argVN);
+    }
+
+    return BroadcastConstantToSimd<simd32_t>(vns, baseType, argVN);
+}
+#endif
+
 ValueNum EvaluateUnarySimd(
     ValueNumStore* vns, genTreeOps oper, bool scalar, var_types simdType, var_types baseType, ValueNum arg0VN)
 {
@@ -7573,7 +7663,16 @@ ValueNum EvaluateUnarySimd(
             EvaluateUnarySimd<simd64_t>(oper, scalar, baseType, &result, arg0);
             return vns->VNForSimd64Con(result);
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            simd32_t arg0 = GetConstantSimd32(vns, baseType, arg0VN);
+
+            simd32_t result = {};
+            EvaluateUnarySimd<simd32_t>(oper, scalar, baseType, &result, arg0);
+            return vns->VNForSimd32Con(result);
+        }
+#endif // TARGET_LOONGARCH64
 
         default:
         {
@@ -7642,7 +7741,17 @@ ValueNum EvaluateBinarySimd(ValueNumStore* vns,
             EvaluateBinarySimd<simd64_t>(oper, scalar, baseType, &result, arg0, arg1);
             return vns->VNForSimd64Con(result);
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            simd32_t arg0 = GetConstantSimd32(vns, baseType, arg0VN);
+            simd32_t arg1 = GetConstantSimd32(vns, baseType, arg1VN);
+
+            simd32_t result = {};
+            EvaluateBinarySimd<simd32_t>(oper, scalar, baseType, &result, arg0, arg1);
+            return vns->VNForSimd32Con(result);
+        }
+#endif // TARGET_LOONGARCH64
 
         default:
         {
@@ -7757,7 +7866,12 @@ ValueNum EvaluateSimdGetElement(
         {
             return EvaluateSimdGetElement<simd64_t>(vns, baseType, vns->GetConstantSimd64(arg0VN), arg1);
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            return EvaluateSimdGetElement<simd32_t>(vns, baseType, vns->GetConstantSimd32(arg0VN), arg1);
+        }
+#endif // TARGET_LOONGARCH64
 
         default:
         {
@@ -7766,6 +7880,7 @@ ValueNum EvaluateSimdGetElement(
     }
 }
 
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
 ValueNum EvaluateSimdCvtMaskToVector(ValueNumStore* vns, var_types simdType, var_types baseType, ValueNum arg0VN)
 {
     simdmask_t arg0 = vns->GetConstantSimdMask(arg0VN);
@@ -7867,6 +7982,7 @@ ValueNum EvaluateSimdCvtVectorToMask(ValueNumStore* vns, var_types simdType, var
 
     return vns->VNForSimdMaskCon(result);
 }
+#endif
 
 ValueNum ValueNumStore::EvalHWIntrinsicFunUnary(GenTreeHWIntrinsic* tree,
                                                 VNFunc              func,
@@ -7885,6 +8001,7 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunUnary(GenTreeHWIntrinsic* tree,
 
         if (oper != GT_NONE)
         {
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
             if (varTypeIsMask(type))
             {
                 simdmask_t arg0 = GetConstantSimdMask(arg0VN);
@@ -7893,8 +8010,10 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunUnary(GenTreeHWIntrinsic* tree,
                 EvaluateUnaryMask(oper, isScalar, baseType, simdSize, &result, arg0);
                 return VNForSimdMaskCon(result);
             }
+#endif
             return EvaluateUnarySimd(this, oper, isScalar, type, baseType, arg0VN);
         }
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
         else if (tree->OperIsConvertMaskToVector())
         {
             return EvaluateSimdCvtMaskToVector(this, type, baseType, arg0VN);
@@ -7904,9 +8023,11 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunUnary(GenTreeHWIntrinsic* tree,
             var_types simdType = Compiler::getSIMDTypeForSize(simdSize);
             return EvaluateSimdCvtVectorToMask(this, simdType, baseType, arg0VN);
         }
+#endif
 
         switch (ni)
         {
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
 #if defined(TARGET_ARM64)
             case NI_Vector64_ExtractMostSignificantBits:
 #elif defined(TARGET_XARCH)
@@ -7959,6 +8080,7 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunUnary(GenTreeHWIntrinsic* tree,
                 return VNForIntCon(static_cast<int32_t>(mask));
             }
 
+#endif // FEATURE_MASKED_HW_INTRINSICS
 #ifdef TARGET_XARCH
             case NI_AVX512_MoveMask:
             {
@@ -7982,7 +8104,7 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunUnary(GenTreeHWIntrinsic* tree,
 
 #ifdef TARGET_ARM64
             case NI_ArmBase_LeadingZeroCount:
-#else
+#elif defined(TARGET_XARCH)
             case NI_AVX2_LeadingZeroCount:
 #endif
             {
@@ -8003,6 +8125,24 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunUnary(GenTreeHWIntrinsic* tree,
                 uint32_t result = BitOperations::LeadingZeroCount(static_cast<uint64_t>(value));
 
                 return VNForIntCon(static_cast<int32_t>(result));
+            }
+#elif defined(TARGET_LOONGARCH64)
+            case NI_LoongArch64Base_LeadingZeroCount:
+            {
+                assert(varTypeIsInt(type));
+                if (varTypeIsInt(TypeOfVN(arg0VN)))
+                {
+                    int32_t  value  = GetConstantInt32(arg0VN);
+                    uint32_t result = BitOperations::LeadingZeroCount(static_cast<uint32_t>(value));
+                    return VNForIntCon(static_cast<int32_t>(result));
+                }
+                else
+                {
+                    assert(varTypeIsLong(TypeOfVN(arg0VN)));
+                    int64_t  value  = GetConstantInt64(arg0VN);
+                    uint32_t result = BitOperations::LeadingZeroCount(static_cast<uint64_t>(value));
+                    return VNForIntCon(static_cast<int32_t>(result));
+                }
             }
 #else
             case NI_AVX2_X64_LeadingZeroCount:
@@ -8218,6 +8358,50 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunUnary(GenTreeHWIntrinsic* tree,
             }
 #endif // TARGET_XARCH
 
+#if defined(TARGET_LOONGARCH64)
+            case NI_Vector128_GetLower:
+            {
+                simd8_t result = GetConstantSimd16(arg0VN).v64[0];
+                return VNForSimd8Con(result);
+            }
+
+            case NI_Vector128_GetUpper:
+            {
+                simd8_t result = GetConstantSimd16(arg0VN).v64[1];
+                return VNForSimd8Con(result);
+            }
+
+            case NI_Vector256_GetLower:
+            {
+                simd16_t result = GetConstantSimd32(arg0VN).v128[0];
+                return VNForSimd16Con(result);
+            }
+
+            case NI_Vector256_GetUpper:
+            {
+                simd16_t result = GetConstantSimd32(arg0VN).v128[1];
+                return VNForSimd16Con(result);
+            }
+
+            case NI_LoongArch64Base_TrailingZeroCount:
+            {
+                assert(varTypeIsInt(type));
+                if (varTypeIsInt(TypeOfVN(arg0VN)))
+                {
+                    int32_t  value  = GetConstantInt32(arg0VN);
+                    uint32_t result = BitOperations::TrailingZeroCount(static_cast<uint32_t>(value));
+                    return VNForIntCon(static_cast<int32_t>(result));
+                }
+                else
+                {
+                    assert(varTypeIsLong(TypeOfVN(arg0VN)));
+                    int64_t  value  = GetConstantInt64(arg0VN);
+                    uint32_t result = BitOperations::TrailingZeroCount(static_cast<uint64_t>(value));
+                    return VNForIntCon(static_cast<int32_t>(result));
+                }
+            }
+#endif // TARGET_LOONGARCH64
+
             case NI_Vector128_AsVector2:
             {
                 simd8_t result = GetConstantSimd16(arg0VN).v64[0];
@@ -8262,6 +8446,9 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunUnary(GenTreeHWIntrinsic* tree,
             case NI_Vector128_ToScalar:
 #ifdef TARGET_ARM64
             case NI_Vector64_ToScalar:
+#elif defined(TARGET_LOONGARCH64)
+            //should confirm
+            case NI_Vector256_ToScalar:
 #else
             case NI_Vector256_ToScalar:
             case NI_Vector512_ToScalar:
@@ -8320,6 +8507,7 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunBinary(
             // We shouldn't find AND_NOT, OR_NOT or XOR_NOT nodes since it should only be produced in lowering
             assert((oper != GT_AND_NOT) && (oper != GT_OR_NOT) && (oper != GT_XOR_NOT));
 
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
             if (varTypeIsMask(type))
             {
                 if (varTypeIsMask(TypeOfVN(arg0VN)))
@@ -8338,6 +8526,7 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunBinary(
                     return EvaluateSimdCvtVectorToMask(this, simdType, baseType, simdResult);
                 }
             }
+#endif // FEATURE_MASKED_HW_INTRINSICS
 
 #if defined(TARGET_XARCH)
             if ((oper == GT_LSH) || (oper == GT_RSH) || (oper == GT_RSZ))
@@ -8378,6 +8567,9 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunBinary(
             case NI_Vector128_GetElement:
 #ifdef TARGET_ARM64
             case NI_Vector64_GetElement:
+#elif defined(TARGET_LOONGARCH64)
+            //should confirm
+            case NI_Vector256_GetElement:
 #else
             case NI_Vector256_GetElement:
             case NI_Vector512_GetElement:
@@ -8420,6 +8612,37 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunBinary(
                 return VNForSimd16Con(result);
             }
 #endif // TARGET_ARM64
+
+#if defined(TARGET_LOONGARCH64)
+            case NI_Vector128_WithLower:
+            {
+                simd16_t result = GetConstantSimd16(arg0VN);
+                result.v64[0]   = GetConstantSimd8(arg1VN);
+                return VNForSimd16Con(result);
+            }
+
+            case NI_Vector128_WithUpper:
+            {
+                simd16_t result = GetConstantSimd16(arg0VN);
+                result.v64[1]   = GetConstantSimd8(arg1VN);
+                return VNForSimd16Con(result);
+            }
+
+            case NI_Vector256_WithLower:
+            {
+                simd32_t result = GetConstantSimd32(arg0VN);
+                result.v128[0]  = GetConstantSimd16(arg1VN);
+                return VNForSimd32Con(result);
+            }
+
+            case NI_Vector256_WithUpper:
+            {
+                simd32_t result = GetConstantSimd32(arg0VN);
+                result.v128[1]  = GetConstantSimd16(arg1VN);
+                return VNForSimd32Con(result);
+            }
+
+#endif // TARGET_LOONGARCH64
 
 #if defined(TARGET_XARCH)
             case NI_Vector256_WithLower:
@@ -8957,6 +9180,8 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunBinary(
             case NI_Vector128_op_Equality:
 #if defined(TARGET_ARM64)
             case NI_Vector64_op_Equality:
+#elif defined(TARGET_LOONGARCH64)
+            case NI_Vector256_op_Equality:
 #elif defined(TARGET_XARCH)
             case NI_Vector256_op_Equality:
             case NI_Vector512_op_Equality:
@@ -8978,6 +9203,8 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunBinary(
             case NI_Vector128_op_Inequality:
 #if defined(TARGET_ARM64)
             case NI_Vector64_op_Inequality:
+#elif defined(TARGET_LOONGARCH64)
+            case NI_Vector256_op_Inequality:
 #elif defined(TARGET_XARCH)
             case NI_Vector256_op_Inequality:
             case NI_Vector512_op_Inequality:
@@ -9084,6 +9311,8 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunBinary(
             case NI_Vector128_op_Equality:
 #if defined(TARGET_ARM64)
             case NI_Vector64_op_Equality:
+#elif defined(TARGET_LOONGARCH64)
+            case NI_Vector256_op_Equality:
 #elif defined(TARGET_XARCH)
             case NI_Vector256_op_Equality:
             case NI_Vector512_op_Equality:
@@ -9101,6 +9330,8 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunBinary(
             case NI_Vector128_op_Inequality:
 #if defined(TARGET_ARM64)
             case NI_Vector64_op_Inequality:
+#elif defined(TARGET_LOONGARCH64)
+            case NI_Vector256_op_Inequality:
 #elif defined(TARGET_XARCH)
             case NI_Vector256_op_Inequality:
             case NI_Vector512_op_Inequality:
@@ -9170,7 +9401,14 @@ ValueNum EvaluateSimdWithElementFloating(
             EvaluateWithElementFloating<simd64_t>(baseType, &result, vns->GetConstantSimd64(arg0VN), arg1, arg2);
             return vns->VNForSimd64Con(result);
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            simd32_t result = {};
+            EvaluateWithElementFloating<simd32_t>(baseType, &result, vns->GetConstantSimd32(arg0VN), arg1, arg2);
+            return vns->VNForSimd32Con(result);
+        }
+#endif // TARGET_LOONGARCH64
 
         default:
         {
@@ -9224,7 +9462,14 @@ ValueNum EvaluateSimdWithElementIntegral(
             EvaluateWithElementIntegral<simd64_t>(baseType, &result, vns->GetConstantSimd64(arg0VN), arg1, arg2);
             return vns->VNForSimd64Con(result);
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            simd32_t result = {};
+            EvaluateWithElementIntegral<simd32_t>(baseType, &result, vns->GetConstantSimd32(arg0VN), arg1, arg2);
+            return vns->VNForSimd32Con(result);
+        }
+#endif // TARGET_LOONGARCH64
 
         default:
         {
@@ -9250,6 +9495,9 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunTernary(
 #elif defined(TARGET_ARM64)
         case NI_AdvSimd_BitwiseSelect:
         case NI_Sve_ConditionalSelect:
+#elif defined(TARGET_LOONGARCH64)
+        case NI_Vector128_ConditionalSelect:
+        case NI_Vector256_ConditionalSelect:
 #endif
         {
             if (IsVNConstant(arg0VN))
@@ -9315,6 +9563,9 @@ ValueNum ValueNumStore::EvalHWIntrinsicFunTernary(
         case NI_Vector128_WithElement:
 #ifdef TARGET_ARM64
         case NI_Vector64_WithElement:
+#elif defined(TARGET_LOONGARCH64)
+            //should confirm
+        case NI_Vector256_WithElement:
 #else
         case NI_Vector256_WithElement:
         case NI_Vector512_WithElement:
@@ -10331,7 +10582,15 @@ void ValueNumStore::vnDump(Compiler* comp, ValueNum vn, bool isPtr)
                     cnsVal.u64[6], cnsVal.u64[7]);
                 break;
             }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+            case TYP_SIMD32:
+            {
+                simd32_t cnsVal = GetConstantSimd32(vn);
+                printf("Simd32Cns[0x%016llx, 0x%016llx, 0x%016llx, 0x%016llx]", cnsVal.u64[0], cnsVal.u64[1],
+                       cnsVal.u64[2], cnsVal.u64[3]);
+                break;
+            }
+#endif // TARGET_LOONGARCH64
 
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
             case TYP_MASK:
@@ -11939,7 +12198,16 @@ void Compiler::fgValueNumberTreeConst(GenTree* tree)
             tree->gtVNPair.SetBoth(vnStore->VNForSimd64Con(simd64Val));
             break;
         }
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+        {
+            simd32_t simd32Val;
+            memcpy(&simd32Val, &tree->AsVecCon()->gtSimdVal, sizeof(simd32_t));
+
+            tree->gtVNPair.SetBoth(vnStore->VNForSimd32Con(simd32Val));
+            break;
+        }
+#endif // TARGET_LOONGARCH64
 
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
         case TYP_MASK:

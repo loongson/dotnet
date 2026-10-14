@@ -295,7 +295,9 @@ void CodeGenInterface::siVarLoc::siFillStackVarLoc(
 #if defined(TARGET_XARCH)
         case TYP_SIMD32:
         case TYP_SIMD64:
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+#endif // TARGET_LOONGARCH64
 #endif // FEATURE_SIMD
 #ifdef TARGET_64BIT
         case TYP_LONG:
@@ -435,7 +437,9 @@ void CodeGenInterface::siVarLoc::siFillRegisterVarLoc(
 #if defined(TARGET_XARCH)
         case TYP_SIMD32:
         case TYP_SIMD64:
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+#endif // TARGET_LOONGARCH64
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
         case TYP_MASK:
 #endif // FEATURE_MASKED_HW_INTRINSICS
