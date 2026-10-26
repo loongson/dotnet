@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk" DefaultTargets="Publish;PublishItemsOutputGroup">
+  <!--
+    Publishes crossgen2 for the host (build) RID instead of the target RID. Combined with CrossHostArch,
+    the JIT and jitinterface it runs are the ones produced by the cross-components build: they run on the
+    host architecture but generate code for the target architecture. This is what lets VMR/source-build
+    cross builds R2R target-architecture output with a host-runnable crossgen2.
+  -->
+  <PropertyGroup>
+    <CrossHostArch>$(BuildArchitecture)</CrossHostArch>
+    <_IsPublishing>true</_IsPublishing>
+    <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
+    <PublishDir>$(RuntimeBinDir)$(BuildArchitecture)/crossgen2/</PublishDir>
+    <TargetFramework>$(NetCoreAppCurrent)</TargetFramework>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>true</PublishTrimmed>
+    <PublishSingleFile>true</PublishSingleFile>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <!-- The host crossgen2 does not exist yet while we are cross-compiling, so don't R2R it. -->
+  <PropertyGroup Condition="'$(CrossBuild)' != 'true'">
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
+  </PropertyGroup>
+
+  <Import Project="crossgen2.props" />
+
+  <!--
+    liveBuilds.targets stomps SingleFileHostSourcePath with the singlefilehost built for the target
+    architecture. The host crossgen2 must be runnable on the host, so clear it and let the SDK resolve
+    the single file host of $(NETCoreSdkRuntimeIdentifier)'s apphost pack instead. Same workaround as
+    ILCompiler.csproj (see https://github.com/dotnet/runtime/issues/67742).
+  -->
+  <Target Name="StompSingleFileHostPath"
+          Condition="'$(CrossBuild)' == 'true' or '$(BuildArchitecture)' != '$(TargetArchitecture)'"
+          BeforeTargets="ResolveFrameworkReferences">
+    <PropertyGroup>
+      <SingleFileHostSourcePath></SingleFileHostSourcePath>
+    </PropertyGroup>
+  </Target>
+</Project>

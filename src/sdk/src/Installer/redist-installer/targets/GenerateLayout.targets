@@ -80,8 +80,12 @@
       <CombinedFrameworkHostArchiveFileName Condition=" '$(PgoInstrument)' == 'true' ">dotnet-runtime$(PgoTerm)-$(VSRedistCommonNetCoreSharedFrameworkx6490PackageVersion)-$(SharedFrameworkRid)$(ArchiveExtension)</CombinedFrameworkHostArchiveFileName>
       <WinFormsAndWpfSharedFxArchiveFileName>windowsdesktop-runtime-$(MicrosoftWindowsDesktopAppRuntimePackageVersion)-$(SharedFrameworkRid)$(ArchiveExtension)</WinFormsAndWpfSharedFxArchiveFileName>
 
+      <!--
+        The crossgen2 we run is the one that runs on the host, so use the host RID even in source-only
+        builds: the runtime repo provides a host crossgen2 (Microsoft.NETCore.App.Crossgen2.<host RID>)
+        whenever the host differs from the target.
+      -->
       <Crossgen2Rid>$(HostOSName)-$(BuildArchitecture)</Crossgen2Rid>
-      <Crossgen2Rid Condition="'$(DotNetBuildSourceOnly)' == 'true'">$(SharedFrameworkRid)</Crossgen2Rid>
 
       <AspNetCoreInstallerRid Condition="'$(AspNetCoreInstallerRid)' == ''">$(SharedFrameworkRid)</AspNetCoreInstallerRid>
       <AspNetCoreInstallerRid Condition="'$(SharedFrameworkRid)' == 'rhel.6-x64'">linux-x64</AspNetCoreInstallerRid>
