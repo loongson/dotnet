@@ -1,0 +1,13 @@
+<linker>
+  <assembly fullname="System.Private.CoreLib">
+    <type fullname="System.Runtime.Intrinsics.LoongArch.LoongArch64Base">
+      <method signature="System.Boolean get_IsSupported()" body="stub" value="false" />
+    </type>
+    <type fullname="System.Runtime.Intrinsics.LoongArch.Lsx">
+      <method signature="System.Boolean get_IsSupported()" body="stub" value="false" />
+    </type>
+    <type fullname="System.Runtime.Intrinsics.LoongArch.Lasx">
+      <method signature="System.Boolean get_IsSupported()" body="stub" value="false" />
+    </type>
+  </assembly>
+</linker>

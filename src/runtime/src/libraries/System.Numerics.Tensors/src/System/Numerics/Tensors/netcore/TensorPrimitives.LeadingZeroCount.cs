@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.X86;
+using System.Runtime.Intrinsics.LoongArch;
 
 namespace System.Numerics.Tensors
 {
@@ -31,7 +32,8 @@ namespace System.Numerics.Tensors
             public static bool Vectorizable =>
                 (Avx512CD.VL.IsSupported && (sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8)) ||
                 (Avx512Vbmi.VL.IsSupported && sizeof(T) == 1) ||
-                (AdvSimd.IsSupported && (sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4));
+                (AdvSimd.IsSupported && (sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4)) ||
+                ((Lsx.IsSupported || Lasx.IsSupported) && (sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8));
 
             public static T Invoke(T x) => T.LeadingZeroCount(x);
 
@@ -75,6 +77,16 @@ namespace System.Numerics.Tensors
                     {
                         return Avx512CD.VL.LeadingZeroCount(x.AsUInt64()).As<ulong, T>();
                     }
+                }
+
+                if (Lsx.IsSupported)
+                {
+                    if (sizeof(T) == 1) return Lsx.LeadingZeroCount(x.AsByte()).As<byte, T>();
+                    if (sizeof(T) == 2) return Lsx.LeadingZeroCount(x.AsUInt16()).As<ushort, T>();
+                    if (sizeof(T) == 4) return Lsx.LeadingZeroCount(x.AsUInt32()).As<uint, T>();
+
+                    Debug.Assert(sizeof(T) == 8);
+                    return Lsx.LeadingZeroCount(x.AsUInt64()).As<ulong, T>();
                 }
 
                 Debug.Assert(AdvSimd.IsSupported);
@@ -126,6 +138,16 @@ namespace System.Numerics.Tensors
                     {
                         return Avx512CD.VL.LeadingZeroCount(x.AsUInt64()).As<ulong, T>();
                     }
+                }
+
+                if (Lasx.IsSupported)
+                {
+                    if (sizeof(T) == 1) return Lasx.LeadingZeroCount(x.AsByte()).As<byte, T>();
+                    if (sizeof(T) == 2) return Lasx.LeadingZeroCount(x.AsUInt16()).As<ushort, T>();
+                    if (sizeof(T) == 4) return Lasx.LeadingZeroCount(x.AsUInt32()).As<uint, T>();
+
+                    Debug.Assert(sizeof(T) == 8);
+                    return Lasx.LeadingZeroCount(x.AsUInt64()).As<ulong, T>();
                 }
 
                 return Vector256.Create(Invoke(x.GetLower()), Invoke(x.GetUpper()));

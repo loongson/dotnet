@@ -1195,6 +1195,16 @@ void Compiler::fgFindJumpTargets(const BYTE* codeAddr, IL_OFFSET codeSize, Fixed
                             case NI_X86Base_BitScanReverse:
                             case NI_X86Base_X64_BitScanReverse:
 #endif // TARGET_XARCH
+#if defined(TARGET_LOONGARCH64)
+                            case NI_LoongArch64Base_LeadingZeroCount:
+                            case NI_LoongArch64Base_TrailingZeroCount:
+                            case NI_LSX_PopCount:
+                            case NI_LASX_PopCount:
+                            case NI_Vector256_Create:
+                            case NI_Vector256_CreateScalar:
+                            case NI_Vector256_CreateScalarUnsafe:
+#endif // TARGET_LOONGARCH64
+
 #endif // FEATURE_HW_INTRINSICS
                             {
                                 // Top() in order to keep it as is in case of foldableIntrinsic
@@ -1497,6 +1507,11 @@ void Compiler::fgFindJumpTargets(const BYTE* codeAddr, IL_OFFSET codeSize, Fixed
                             case NI_Vector512_get_One:
                             case NI_Vector512_get_Zero:
 #endif // TARGET_XARCH
+#if defined(TARGET_LOONGARCH64)
+                            case NI_Vector256_get_AllBitsSet:
+                            case NI_Vector256_get_One:
+                            case NI_Vector256_get_Zero:
+#endif // TARGET_LOONGARCH64
 #endif // FEATURE_HW_INTRINSICS
                             {
                                 // These always produce a vector constant

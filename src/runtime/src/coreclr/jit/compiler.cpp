@@ -1991,6 +1991,16 @@ void Compiler::compSetProcessor()
     // Add virtual vector ISAs. These are both supported as part of the required baseline.
     instructionSetFlags.AddInstructionSet(InstructionSet_Vector64);
     instructionSetFlags.AddInstructionSet(InstructionSet_Vector128);
+#elif defined(TARGET_LOONGARCH64)
+    instructionSetFlags.AddInstructionSet(InstructionSet_LoongArch64Base);
+    if (instructionSetFlags.HasInstructionSet(InstructionSet_LSX))
+    {
+        instructionSetFlags.AddInstructionSet(InstructionSet_Vector128);
+    }
+    if (instructionSetFlags.HasInstructionSet(InstructionSet_LASX))
+    {
+        instructionSetFlags.AddInstructionSet(InstructionSet_Vector256);
+    }
 #endif // TARGET_ARM64
 
     assert(instructionSetFlags.Equals(EnsureInstructionSetFlagsAreValid(instructionSetFlags)));
@@ -6165,6 +6175,19 @@ int Compiler::compCompile(CORINFO_MODULE_HANDLE classPtr,
         {
             instructionSetFlags.AddInstructionSet(InstructionSet_Zbb);
         }
+#elif defined(TARGET_LOONGARCH64)
+       if (JitConfig.EnableHWIntrinsic() != 0)
+       {
+           instructionSetFlags.AddInstructionSet(InstructionSet_LoongArch64Base);
+       }
+       if (JitConfig.EnableLoongArch64LSX() != 0)
+       {
+           instructionSetFlags.AddInstructionSet(InstructionSet_LSX);
+       }
+       if (JitConfig.EnableLoongArch64LASX() != 0)
+       {
+           instructionSetFlags.AddInstructionSet(InstructionSet_LASX);
+       }
 #endif
 
         // These calls are important and explicitly ordered to ensure that the flags are correct in

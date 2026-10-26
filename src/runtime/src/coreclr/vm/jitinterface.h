@@ -796,6 +796,16 @@ public:
         LIMITED_METHOD_CONTRACT;
         return 0;
     }
+#ifdef TARGET_LOONGARCH64
+    PatchpointInfo* GetPatchpointInfo() override
+    {
+#ifdef FEATURE_ON_STACK_REPLACEMENT
+        return m_pPatchpointInfoFromJit;
+#else
+        return NULL;
+#endif
+    }
+#endif // defind(TARGET_LOONGARCH64)
 #endif // defined(TARGET_AMD64) || defined(TARGET_ARM64)
 
 #ifdef FEATURE_ON_STACK_REPLACEMENT

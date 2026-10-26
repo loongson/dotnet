@@ -221,6 +221,23 @@ inline static bool isValidVectorElemsize(emitAttr size)
 }
 
 void emitIns_S_R_SIMD12(regNumber ireg, int varx, int offs);
+
+inline static bool isMaskReg(regNumber reg)
+{
+    return false;
+}
+
+inline static bool isPredicateRegister(regNumber reg)
+{
+    return false;
+}
+
+// Returns true if 'reg' represents an integer register.
+static bool isIntegerRegister(regNumber reg)
+{
+    return (reg >= REG_INT_FIRST) && (reg <= REG_INT_LAST);
+}
+
 #endif
 
 /************************************************************************/

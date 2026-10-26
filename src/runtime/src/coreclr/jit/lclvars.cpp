@@ -3140,6 +3140,9 @@ void Compiler::lvaSortByRefCount()
                 case TYP_SIMD32:
                 case TYP_SIMD64:
 #endif // TARGET_XARCH
+#ifdef TARGET_LOONGARCH64
+                case TYP_SIMD32:
+#endif // TARGET_LOONGARCH64
 #ifdef FEATURE_MASKED_HW_INTRINSICS
                 case TYP_MASK:
 #endif // FEATURE_MASKED_HW_INTRINSICS

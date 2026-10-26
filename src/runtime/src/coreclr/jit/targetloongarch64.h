@@ -17,9 +17,11 @@
   #define CPU_HAS_BYTE_REGS        0
 
 #ifdef FEATURE_SIMD
-#pragma error("SIMD Unimplemented yet LOONGARCH")
   #define ALIGN_SIMD_TYPES         1       // whether SIMD type locals are to be aligned
   #define FEATURE_PARTIAL_SIMD_CALLEE_SAVE 1 // Whether SIMD registers are partially saved at calls
+  #define LSX_REGSIZE_BYTES        16      // LSX  register size in bytes
+  #define LASX_REGSIZE_BYTES       32      // LASX register size in bytes
+
 #endif // FEATURE_SIMD
 
   #define FEATURE_FIXED_OUT_ARGS   1       // Preallocate the outgoing arg area in the prolog
@@ -324,5 +326,10 @@
   #define OFFSET_DIST_SMALL_MAX_POS   (+2047)
 
   #define STACK_PROBE_BOUNDARY_THRESHOLD_BYTES 0
+  // Floating-point control status register
+  #define REG_FCSR0                REG_F0
+  #define REG_FCSR1                REG_F1
+  #define REG_FCSR2                REG_F2
+  #define REG_FCSR3                REG_F3
 
 // clang-format on

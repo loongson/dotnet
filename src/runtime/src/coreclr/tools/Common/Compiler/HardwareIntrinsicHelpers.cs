@@ -29,6 +29,7 @@ namespace ILCompiler
                 return method.Context.Target.Architecture switch
                 {
                     TargetArchitecture.ARM64 => ns == "System.Runtime.Intrinsics.Arm",
+                    TargetArchitecture.LoongArch64 => ns == "System.Runtime.Intrinsics.LoongArch",
                     TargetArchitecture.X64 or TargetArchitecture.X86 => ns == "System.Runtime.Intrinsics.X86",
                     _ => false,
                 };
@@ -50,6 +51,9 @@ namespace ILCompiler
                     break;
                 case TargetArchitecture.RiscV64:
                     RiscV64IntrinsicConstants.AddToBuilder(builder, flags);
+                    break;
+                case TargetArchitecture.LoongArch64:
+                    LoongArch64IntrinsicConstants.AddToBuilder(builder, flags);
                     break;
                 default:
                     Debug.Fail("Probably unimplemented");
@@ -327,6 +331,49 @@ namespace ILCompiler
                     InstructionSet.RiscV64_Zbb => Zbb,
 
                     _ => throw new NotSupportedException(((InstructionSet_RiscV64)instructionSet).ToString())
+                };
+            }
+        }
+
+        // Keep these enumerations in sync with cpufeatures.h in the minipal.
+        private static class LoongArch64IntrinsicConstants
+        {
+            public const int Lam_BH = (1 << 0);
+            public const int Lam_CAS = (1 << 1);
+            public const int Lsx = (1 << 2);
+            public const int Lasx = (1 << 3);
+            public const int Frecipe = (1 << 4);
+
+            public static void AddToBuilder(InstructionSetSupportBuilder builder, int flags)
+            {
+                if ((flags & Lam_BH) != 0)
+                    builder.AddSupportedInstructionSet("lam_bh");
+                if ((flags & Lam_CAS) != 0)
+                    builder.AddSupportedInstructionSet("lam_cas");
+                if ((flags & Lsx) != 0)
+                    builder.AddSupportedInstructionSet("lsx");
+                if ((flags & Lasx) != 0)
+                    builder.AddSupportedInstructionSet("lasx");
+                if ((flags & Frecipe) != 0)
+                    builder.AddSupportedInstructionSet("frecipe");
+            }
+
+            public static int FromInstructionSet(InstructionSet instructionSet)
+            {
+                return instructionSet switch
+                {
+                    // Baseline ISAs - they're always available
+                    InstructionSet.LoongArch64_LoongArch64Base => 0,
+
+                    // Optional ISAs - only available via opt-in or opportunistic light-up
+                    InstructionSet.LoongArch64_LAM_BH => Lam_BH,
+                    InstructionSet.LoongArch64_LAM_CAS => Lam_CAS,
+                    InstructionSet.LoongArch64_LSX => Lsx,
+                    InstructionSet.LoongArch64_LASX => Lasx,
+                    InstructionSet.LoongArch64_VectorT128 => Lsx,
+                    InstructionSet.LoongArch64_VectorT256 => Lasx,
+                    InstructionSet.LoongArch64_FRECIPE => Frecipe,
+                    _ => throw new NotSupportedException(((InstructionSet_LoongArch64)instructionSet).ToString())
                 };
             }
         }

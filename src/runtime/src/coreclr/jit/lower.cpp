@@ -2595,6 +2595,14 @@ bool Lowering::LowerCallMemcmp(GenTreeCall* call, GenTree** next)
                     loadType  = TYP_SIMD64;
                 }
 #endif // TARGET_XARCH
+#ifdef TARGET_LOONGARCH64
+                else if ((loadWidth == 32) || (MaxUnrollSize == 64))
+                {
+                    assert(!"SIMD unimplemented yet on LA");
+                    loadWidth = 32;
+                    loadType  = TYP_SIMD32;
+                }
+#endif // TARGET_LOONGARCH64
 #endif // FEATURE_SIMD
                 else
                 {
@@ -10273,7 +10281,6 @@ void Lowering::LowerStoreIndirCoalescing(GenTreeIndir* ind)
             case TYP_SIMD16:
                 tryReusingPrevValue = true;
                 break;
-
 #endif // TARGET_ARM64
 #endif // FEATURE_HW_INTRINSICS
 #endif // TARGET_64BIT

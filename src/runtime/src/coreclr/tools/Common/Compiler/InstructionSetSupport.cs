@@ -89,7 +89,10 @@ namespace ILCompiler
             }
             else if (architecture is TargetArchitecture.LoongArch64)
             {
-                return "";
+                if (potentialType.Name == "LoongArch64")
+                  potentialType = (MetadataType)potentialType.ContainingType;
+                if (potentialType.Namespace != "System.Runtime.Intrinsics.LoongArch")
+                     return "";
             }
             else if (architecture is TargetArchitecture.RiscV64)
             {
@@ -148,7 +151,18 @@ namespace ILCompiler
             }
             else if (_targetArchitecture == TargetArchitecture.LoongArch64)
             {
-                return SimdVectorLength.None;
+                if (IsInstructionSetOptimisticallySupported(InstructionSet.LoongArch64_VectorT256))
+                {
+                    return SimdVectorLength.Vector256Bit;
+                }
+                else if (IsInstructionSetOptimisticallySupported(InstructionSet.LoongArch64_VectorT128))
+                {
+                    return SimdVectorLength.Vector128Bit;
+                }
+                else
+                {
+                    return SimdVectorLength.None;
+                }
             }
             else if (_targetArchitecture == TargetArchitecture.RiscV64)
             {
@@ -418,6 +432,26 @@ namespace ILCompiler
                     Debug.Assert(supportedInstructionSets.HasInstructionSet(InstructionSet.ARM64_AdvSimd));
                     Debug.Assert((maxVectorTBitWidth == 0) || (maxVectorTBitWidth >= 128));
                     supportedInstructionSets.AddInstructionSet(InstructionSet.ARM64_VectorT128);
+                    break;
+                }
+
+                case TargetArchitecture.LoongArch64:
+                {
+                    if (supportedInstructionSets.HasInstructionSet(InstructionSet.LoongArch64_LASX))
+                    {
+                        if ((maxVectorTBitWidth == 0) || (maxVectorTBitWidth >= 256))
+                        {
+                            supportedInstructionSets.AddInstructionSet(InstructionSet.LoongArch64_VectorT256);
+                        }
+
+                    }
+                    else if (supportedInstructionSets.HasInstructionSet(InstructionSet.LoongArch64_LSX))
+                    {
+                        if ((maxVectorTBitWidth == 0) || (maxVectorTBitWidth >= 128))
+                        {
+                            supportedInstructionSets.AddInstructionSet(InstructionSet.LoongArch64_VectorT128);
+                        }
+                    }
                     break;
                 }
             }

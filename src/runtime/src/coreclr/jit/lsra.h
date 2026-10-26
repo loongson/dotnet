@@ -1437,6 +1437,10 @@ private:
     GenTreeHWIntrinsic*      getContainedCselOperand(GenTreeHWIntrinsic* intrinsicTree);
 #endif
 
+#if defined(TARGET_LOONGARCH64) && defined(FEATURE_HW_INTRINSICS)
+    GenTree*                 getDelayFreeOperand(GenTreeHWIntrinsic* intrinsicTree);
+    GenTree*                 getVectorAddrOperand(GenTreeHWIntrinsic* intrinsicTree);
+#endif
 #ifdef DEBUG
     void dumpVarToRegMap(VarToRegMap map);
     void dumpInVarToRegMap(BasicBlock* block);
@@ -1760,6 +1764,9 @@ private:
 #if defined(TARGET_AMD64)
     static const var_types LargeVectorSaveType = TYP_SIMD16;
 #elif defined(TARGET_ARM64)
+    static const var_types LargeVectorSaveType = TYP_DOUBLE;
+#elif defined(TARGET_LOONGARCH64)
+    //should confirm
     static const var_types LargeVectorSaveType = TYP_DOUBLE;
 #endif // !defined(TARGET_AMD64) && !defined(TARGET_ARM64)
     // Set of large vector (TYP_SIMD32 on AVX) variables.

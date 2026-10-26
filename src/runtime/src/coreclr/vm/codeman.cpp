@@ -1668,6 +1668,39 @@ void EEJitManager::SetCpuInfo()
     {
         CPUCompileFlags.Set(InstructionSet_Zbb);
     }
+#elif defined(TARGET_LOONGARCH64)
+    if (CLRConfig::GetConfigValue(CLRConfig::EXTERNAL_EnableHWIntrinsic))
+    {
+        CPUCompileFlags.Set(InstructionSet_LoongArch64Base);
+    }
+
+    if (((cpuFeatures & LOONGARCH64IntrinsicConstants_LAM_BH) != 0) && CLRConfig::GetConfigValue(CLRConfig::EXTERNAL_EnableLoongArch64LAM_BH))
+    {
+        CPUCompileFlags.Set(InstructionSet_LAM_BH);
+    }
+
+    if (((cpuFeatures & LOONGARCH64IntrinsicConstants_LAM_CAS) != 0) && CLRConfig::GetConfigValue(CLRConfig::EXTERNAL_EnableLoongArch64LAM_CAS))
+    {
+        CPUCompileFlags.Set(InstructionSet_LAM_CAS);
+    }
+
+    if (((cpuFeatures & LOONGARCH64IntrinsicConstants_LSX) != 0) && CLRConfig::GetConfigValue(CLRConfig::EXTERNAL_EnableLoongArch64LSX))
+    {
+        CPUCompileFlags.Set(InstructionSet_VectorT128);
+        CPUCompileFlags.Set(InstructionSet_LSX);
+    }
+
+    if (((cpuFeatures & LOONGARCH64IntrinsicConstants_LASX) != 0) && CLRConfig::GetConfigValue(CLRConfig::EXTERNAL_EnableLoongArch64LASX))
+    {
+        CPUCompileFlags.Set(InstructionSet_VectorT256);
+        CPUCompileFlags.Clear(InstructionSet_VectorT128);
+        CPUCompileFlags.Set(InstructionSet_LASX);
+    }
+
+    if (((cpuFeatures & LOONGARCH64IntrinsicConstants_FRECIPE) != 0) && CLRConfig::GetConfigValue(CLRConfig::EXTERNAL_EnableLoongArch64FRECIPE))
+    {
+        CPUCompileFlags.Set(InstructionSet_FRECIPE);
+    }
 #endif
 
     // These calls are very important as it ensures the flags are consistent with any

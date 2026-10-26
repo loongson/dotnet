@@ -1689,7 +1689,9 @@ bool LinearScan::isRegCandidate(LclVarDsc* varDsc)
 #if defined(TARGET_XARCH)
         case TYP_SIMD32:
         case TYP_SIMD64:
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+        case TYP_SIMD32:
+#endif // TARGET_LOONGARCH64
 #ifdef FEATURE_MASKED_HW_INTRINSICS
         case TYP_MASK:
 #endif // FEATURE_MASKED_HW_INTRINSICS
@@ -2793,7 +2795,11 @@ RegisterType LinearScan::getRegisterType(Interval* currentInterval, RefPosition*
     }
     else
     {
-        assert((regType == TYP_DOUBLE) || (regType == TYP_FLOAT));
+        assert((regType == TYP_DOUBLE) || (regType == TYP_FLOAT)
+#ifdef FEATURE_SIMD
+                || (regType == TYP_SIMD8)
+#endif
+                );
         assert((candidates & allRegs(TYP_I_IMPL)) != RBM_NONE);
         return TYP_I_IMPL;
     }
@@ -7549,12 +7555,20 @@ void LinearScan::insertUpperVectorSave(GenTree*     tree,
     LclVarDsc* varDsc = compiler->lvaGetDesc(lclVarInterval->varNum);
     assert(Compiler::varTypeNeedsPartialCalleeSave(varDsc->GetRegisterType()));
 
-    // On Arm64, we must always have a register to save the upper half,
+    // On Arm64 and LoongArch64, we must always have a register to save the upper half,
     // while on x86 we can spill directly to memory.
     regNumber spillReg = refPosition->assignedReg();
 #ifdef TARGET_ARM64
     bool spillToMem = refPosition->spillAfter;
     assert(spillReg != REG_NA);
+#elif defined(TARGET_LOONGARCH64)
+    // On LoongArch64 we can spill directly to memory for SIMD32.
+    bool spillToMem = refPosition->spillAfter;
+    if (lclVarInterval->registerType == TYP_SIMD32)
+    {
+        spillToMem = true;
+        setIntervalAsSpilled(lclVarInterval);
+    }
 #else
     bool spillToMem = (spillReg == REG_NA);
     assert(!refPosition->spillAfter);

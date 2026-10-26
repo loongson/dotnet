@@ -44,6 +44,18 @@ enum CORINFO_InstructionSet
     InstructionSet_Sve_Arm64=26,
     InstructionSet_Sve2_Arm64=27,
 #endif // TARGET_ARM64
+#ifdef TARGET_LOONGARCH64
+    InstructionSet_LoongArch64Base=1,
+    InstructionSet_LAM_BH=2,
+    InstructionSet_LAM_CAS=3,
+    InstructionSet_LSX=4,
+    InstructionSet_LASX=5,
+    InstructionSet_Vector128=6,
+    InstructionSet_Vector256=7,
+    InstructionSet_VectorT128=8,
+    InstructionSet_VectorT256=9,
+    InstructionSet_FRECIPE=10,
+#endif // TARGET_LOONGARCH64
 #ifdef TARGET_RISCV64
     InstructionSet_RiscV64Base=1,
     InstructionSet_Zba=2,
@@ -262,6 +274,8 @@ public:
         if (HasInstructionSet(InstructionSet_Sve2))
             AddInstructionSet(InstructionSet_Sve2_Arm64);
 #endif // TARGET_ARM64
+#ifdef TARGET_LOONGARCH64
+#endif // TARGET_LOONGARCH64
 #ifdef TARGET_RISCV64
 #endif // TARGET_RISCV64
 #ifdef TARGET_AMD64
@@ -384,6 +398,20 @@ inline CORINFO_InstructionSetFlags EnsureInstructionSetFlagsAreValid(CORINFO_Ins
         if (resultflags.HasInstructionSet(InstructionSet_Sve2) && !resultflags.HasInstructionSet(InstructionSet_Sve))
             resultflags.RemoveInstructionSet(InstructionSet_Sve2);
 #endif // TARGET_ARM64
+#ifdef TARGET_LOONGARCH64
+        if (resultflags.HasInstructionSet(InstructionSet_LSX) && !resultflags.HasInstructionSet(InstructionSet_LoongArch64Base))
+            resultflags.RemoveInstructionSet(InstructionSet_LSX);
+        if (resultflags.HasInstructionSet(InstructionSet_LASX) && !resultflags.HasInstructionSet(InstructionSet_LSX))
+            resultflags.RemoveInstructionSet(InstructionSet_LASX);
+        if (resultflags.HasInstructionSet(InstructionSet_Vector128) && !resultflags.HasInstructionSet(InstructionSet_LSX))
+            resultflags.RemoveInstructionSet(InstructionSet_Vector128);
+        if (resultflags.HasInstructionSet(InstructionSet_Vector256) && !resultflags.HasInstructionSet(InstructionSet_LASX))
+            resultflags.RemoveInstructionSet(InstructionSet_Vector256);
+        if (resultflags.HasInstructionSet(InstructionSet_VectorT128) && !resultflags.HasInstructionSet(InstructionSet_LSX))
+            resultflags.RemoveInstructionSet(InstructionSet_VectorT128);
+        if (resultflags.HasInstructionSet(InstructionSet_VectorT256) && !resultflags.HasInstructionSet(InstructionSet_LASX))
+            resultflags.RemoveInstructionSet(InstructionSet_VectorT256);
+#endif // TARGET_LOONGARCH64
 #ifdef TARGET_RISCV64
         if (resultflags.HasInstructionSet(InstructionSet_Zbb) && !resultflags.HasInstructionSet(InstructionSet_RiscV64Base))
             resultflags.RemoveInstructionSet(InstructionSet_Zbb);
@@ -660,6 +688,28 @@ inline const char *InstructionSetToString(CORINFO_InstructionSet instructionSet)
         case InstructionSet_Sve2_Arm64 :
             return "Sve2_Arm64";
 #endif // TARGET_ARM64
+#ifdef TARGET_LOONGARCH64
+        case InstructionSet_LoongArch64Base :
+            return "LoongArch64Base";
+        case InstructionSet_LAM_BH :
+            return "LAM_BH";
+        case InstructionSet_LAM_CAS :
+            return "LAM_CAS";
+        case InstructionSet_LSX :
+            return "LSX";
+        case InstructionSet_LASX :
+            return "LASX";
+        case InstructionSet_Vector128 :
+            return "Vector128";
+        case InstructionSet_Vector256 :
+            return "Vector256";
+        case InstructionSet_VectorT128 :
+            return "VectorT128";
+        case InstructionSet_VectorT256 :
+            return "VectorT256";
+        case InstructionSet_FRECIPE :
+            return "FRECIPE";
+#endif // TARGET_LOONGARCH64
 #ifdef TARGET_RISCV64
         case InstructionSet_RiscV64Base :
             return "RiscV64Base";
@@ -860,6 +910,16 @@ inline CORINFO_InstructionSet InstructionSetFromR2RInstructionSet(ReadyToRunInst
         case READYTORUN_INSTRUCTION_Sve: return InstructionSet_Sve;
         case READYTORUN_INSTRUCTION_Sve2: return InstructionSet_Sve2;
 #endif // TARGET_ARM64
+#ifdef TARGET_LOONGARCH64
+        case READYTORUN_INSTRUCTION_LoongArch64Base: return InstructionSet_LoongArch64Base;
+        case READYTORUN_INSTRUCTION_Lam_BH: return InstructionSet_LAM_BH;
+        case READYTORUN_INSTRUCTION_Lam_CAS: return InstructionSet_LAM_CAS;
+        case READYTORUN_INSTRUCTION_Lsx: return InstructionSet_LSX;
+        case READYTORUN_INSTRUCTION_Lasx: return InstructionSet_LASX;
+        case READYTORUN_INSTRUCTION_VectorT128: return InstructionSet_VectorT128;
+        case READYTORUN_INSTRUCTION_VectorT256: return InstructionSet_VectorT256;
+        case READYTORUN_INSTRUCTION_Frecipe: return InstructionSet_FRECIPE;
+#endif // TARGET_LOONGARCH64
 #ifdef TARGET_RISCV64
         case READYTORUN_INSTRUCTION_RiscV64Base: return InstructionSet_RiscV64Base;
         case READYTORUN_INSTRUCTION_Zba: return InstructionSet_Zba;

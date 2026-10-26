@@ -1062,9 +1062,20 @@ void CodeGen::genUnspillLocal(
 {
     LclVarDsc* varDsc = compiler->lvaGetDesc(varNum);
     inst_set_SV_var(lclNode);
+#if defined(FEATURE_SIMD) && defined(TARGET_LOONGARCH64)
+    if (type == TYP_SIMD12)
+    {
+        GetEmitter()->emitIns_R_S(INS_vld, EA_16BYTE, regNum, varNum, 0);
+        GetEmitter()->emitIns_R_R_I(INS_vinsgr2vr_w, EA_4BYTE, regNum, REG_R0, 3);
+    }
+    else
+#endif
+    {
+
     instruction ins = ins_Load(type, compiler->isSIMDTypeLocalAligned(varNum));
     GetEmitter()->emitIns_R_S(ins, emitTypeSize(type), regNum, varNum, 0);
 
+    }
     // TODO-Review: We would like to call:
     //      genUpdateRegLife(varDsc, /*isBorn*/ true, /*isDying*/ false DEBUGARG(tree));
     // instead of the following code, but this ends up hitting this assert:
@@ -1303,7 +1314,17 @@ void CodeGen::genUnspillRegIfNeeded(GenTree* tree)
             emitAttr emitType = emitActualTypeSize(unspillTree->TypeGet());
             // Reload into the register specified by 'tree' which may be a GT_RELOAD.
             regNumber dstReg = tree->GetRegNum();
-            GetEmitter()->emitIns_R_S(ins_Load(unspillTree->gtType), emitType, dstReg, t->tdTempNum(), 0);
+#if defined(FEATURE_SIMD) && defined(TARGET_LOONGARCH64)
+            if (unspillTree->gtType == TYP_SIMD12)
+            {
+                GetEmitter()->emitIns_R_S(INS_vld, EA_16BYTE, dstReg, t->tdTempNum(), 0);
+                GetEmitter()->emitIns_R_R_I(INS_vinsgr2vr_w, EA_4BYTE, dstReg, REG_R0, 3);
+            }
+            else
+#endif
+            {
+                GetEmitter()->emitIns_R_S(ins_Load(unspillTree->gtType), emitType, dstReg, t->tdTempNum(), 0);
+            }
             regSet.tmpRlsTemp(t);
 
             unspillTree->gtFlags &= ~GTF_SPILLED;

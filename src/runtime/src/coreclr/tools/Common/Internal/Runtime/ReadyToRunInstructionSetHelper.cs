@@ -55,6 +55,25 @@ namespace Internal.ReadyToRunConstants
                         }
                     }
 
+                case TargetArchitecture.LoongArch64:
+                    {
+                        switch (instructionSet)
+                        {
+                            case InstructionSet.LoongArch64_LoongArch64Base: return ReadyToRunInstructionSet.LoongArch64Base;
+                            case InstructionSet.LoongArch64_LAM_BH: return ReadyToRunInstructionSet.Lam_BH;
+                            case InstructionSet.LoongArch64_LAM_CAS: return ReadyToRunInstructionSet.Lam_CAS;
+                            case InstructionSet.LoongArch64_LSX: return ReadyToRunInstructionSet.Lsx;
+                            case InstructionSet.LoongArch64_LASX: return ReadyToRunInstructionSet.Lasx;
+                            case InstructionSet.LoongArch64_Vector128: return null;
+                            case InstructionSet.LoongArch64_Vector256: return null;
+                            case InstructionSet.LoongArch64_VectorT128: return ReadyToRunInstructionSet.VectorT128;
+                            case InstructionSet.LoongArch64_VectorT256: return ReadyToRunInstructionSet.VectorT256;
+                            case InstructionSet.LoongArch64_FRECIPE: return ReadyToRunInstructionSet.Frecipe;
+
+                            default: throw new Exception("Unknown instruction set");
+                        }
+                    }
+
                 case TargetArchitecture.RiscV64:
                     {
                         switch (instructionSet)

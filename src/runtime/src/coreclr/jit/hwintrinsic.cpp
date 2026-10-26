@@ -34,6 +34,19 @@ static const HWIntrinsicInfo hwIntrinsicInfoArray[] = {
         /* category */ category \
     },
 #include "hwintrinsiclistarm64.h"
+#elif defined (TARGET_LOONGARCH64)
+#define HARDWARE_INTRINSIC(isa, name, size, numarg, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, category, flag) \
+    { \
+            /* name */ #name, \
+           /* flags */ static_cast<HWIntrinsicFlag>(flag), \
+              /* id */ NI_##isa##_##name, \
+             /* ins */ t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, \
+             /* isa */ InstructionSet_##isa, \
+        /* simdSize */ size, \
+         /* numArgs */ numarg, \
+        /* category */ category \
+    },
+#include "hwintrinsiclistloongarch64.h"
 #else
 #error Unsupported platform
 #endif
@@ -1017,6 +1030,18 @@ static const HWIntrinsicIsaRange hwintrinsicIsaRangeArray[] = {
     { NI_Illegal, NI_Illegal },                                 //      Sha256_Arm64
     { NI_Illegal, NI_Illegal },                                 //      Sve_Arm64
     { NI_Illegal, NI_Illegal },                                 //      Sve2_Arm64
+#elif defined (TARGET_LOONGARCH64)
+    // FIXME : should confirm
+    { FIRST_NI_LoongArch64Base, LAST_NI_LoongArch64Base },
+    { NI_Illegal, NI_Illegal },                                 // LAM_BH
+    { NI_Illegal, NI_Illegal },                                 // LAM_CAS
+    { FIRST_NI_LSX, LAST_NI_LSX },
+    { FIRST_NI_LASX, LAST_NI_LASX },
+    { FIRST_NI_Vector128, LAST_NI_Vector128 },
+    { FIRST_NI_Vector256, LAST_NI_Vector256 },
+    { NI_Illegal, NI_Illegal },                                 // VectorT128
+    { NI_Illegal, NI_Illegal },                                 // VectorT256
+    { NI_Illegal, NI_Illegal },                                 // FRECIPE
 #else
 #error Unsupported platform
 #endif
@@ -1039,6 +1064,8 @@ static void ValidateHWIntrinsicInfo(CORINFO_InstructionSet isa, NamedIntrinsic n
         assert((info.simdSize == 8) || (info.simdSize == 16));
 #elif defined(TARGET_XARCH)
         assert((info.simdSize == 16) || (info.simdSize == 32) || (info.simdSize == 64));
+#elif defined(TARGET_LOONGARCH64)
+        assert((info.simdSize == 16) || (info.simdSize == 32));
 #else
         unreached();
 #endif
@@ -1047,7 +1074,7 @@ static void ValidateHWIntrinsicInfo(CORINFO_InstructionSet isa, NamedIntrinsic n
     if (info.numArgs != -1)
     {
         // We should only have an expected number of arguments
-#if defined(TARGET_ARM64) || defined(TARGET_XARCH)
+#if defined(TARGET_ARM64) || defined(TARGET_XARCH) || defined(TARGET_LOONGARCH64)
         assert((info.numArgs >= 0) && (info.numArgs <= 5));
 #else
         unreached();
@@ -1334,10 +1361,17 @@ NamedIntrinsic HWIntrinsicInfo::lookupId(Compiler*         comp,
 
     if (isa == InstructionSet_Vector128)
     {
+#if defined(TARGET_LOONGARCH64)
+        if (!comp->compOpportunisticallyDependsOn(InstructionSet_LSX))
+        {
+            return NI_Illegal;
+        }
+#else
         if (!isHWIntrinsicEnabled)
         {
             return NI_Illegal;
         }
+#endif
     }
 #if defined(TARGET_XARCH)
     else if (isa == InstructionSet_Vector256)
@@ -1365,6 +1399,14 @@ NamedIntrinsic HWIntrinsicInfo::lookupId(Compiler*         comp,
     else if (isa == InstructionSet_Vector64)
     {
         if (!isHWIntrinsicEnabled)
+        {
+            return NI_Illegal;
+        }
+    }
+#elif defined(TARGET_LOONGARCH64)
+    else if (isa == InstructionSet_Vector256)
+    {
+        if (!comp->compOpportunisticallyDependsOn(InstructionSet_LASX))
         {
             return NI_Illegal;
         }
@@ -1470,6 +1512,12 @@ bool HWIntrinsicInfo::isImmOp(NamedIntrinsic id, const GenTree* op)
         return true;
     }
 #elif defined(TARGET_ARM64)
+    if (!HWIntrinsicInfo::HasImmediateOperand(id))
+    {
+        return false;
+    }
+#elif defined(TARGET_LOONGARCH64)
+    //should confirm
     if (!HWIntrinsicInfo::HasImmediateOperand(id))
     {
         return false;
@@ -1674,6 +1722,9 @@ static bool isSupportedBaseType(NamedIntrinsic intrinsic, CorInfoType baseJitTyp
 #ifdef TARGET_ARM64
     assert((isa == InstructionSet_Vector64) || (isa == InstructionSet_Vector128));
 #endif // TARGET_ARM64
+#ifdef TARGET_LOONGARCH64
+    assert((isa == InstructionSet_Vector128) || (isa == InstructionSet_Vector256));
+#endif // TARGET_LOONGARCH64
 #endif // DEBUG
     return false;
 }
@@ -2119,6 +2170,8 @@ GenTree* Compiler::impHWIntrinsic(NamedIntrinsic        intrinsic,
         var_types immSimdBaseType = simdBaseType;
         getHWIntrinsicImmTypes(intrinsic, sig, 1, &immSimdSize, &immSimdBaseType);
         HWIntrinsicInfo::lookupImmBounds(intrinsic, immSimdSize, immSimdBaseType, 1, &immLowerBound, &immUpperBound);
+#elif defined(TARGET_LOONGARCH64)
+        //should confirm
 #else
         immUpperBound   = HWIntrinsicInfo::lookupImmUpperBound(intrinsic);
         hasFullRangeImm = HWIntrinsicInfo::HasFullRangeImm(intrinsic);
@@ -2194,6 +2247,8 @@ GenTree* Compiler::impHWIntrinsic(NamedIntrinsic        intrinsic,
             if ((simdSize != 8) && (simdSize != 16))
 #elif defined(TARGET_XARCH)
             if ((simdSize != 16) && (simdSize != 32) && (simdSize != 64))
+#elif defined(TARGET_LOONGARCH64)
+            if ((simdSize != 16) && (simdSize != 32))
 #endif // TARGET_*
             {
                 assert(!"Unexpected SIMD size");
@@ -2377,6 +2432,29 @@ GenTree* Compiler::impHWIntrinsic(NamedIntrinsic        intrinsic,
                     case NI_Sve_ShiftRightArithmetic:
                     case NI_Sve_ShiftRightLogical:
                         retNode->AsHWIntrinsic()->SetAuxiliaryJitType(getBaseJitTypeOfSIMDType(sigReader.op2ClsHnd));
+                        break;
+
+                    default:
+                        break;
+                }
+#elif defined(TARGET_LOONGARCH64)
+                switch (intrinsic)
+                {
+                    case NI_LoongArch64Base_CyclicRedundancyCheckIEEE8023:
+                    case NI_LoongArch64Base_CyclicRedundancyCheckCastagnoli:
+                        retNode->AsHWIntrinsic()->SetSimdBaseJitType(sigReader.op2JitType);
+                        break;
+
+                    case NI_LoongArch64Base_MultiplyHigh:
+                        if (sig->retType == CORINFO_TYPE_ULONG)
+                        {
+                            retNode->AsHWIntrinsic()->SetSimdBaseJitType(CORINFO_TYPE_ULONG);
+                        }
+                        else
+                        {
+                            assert(sig->retType == CORINFO_TYPE_LONG);
+                            retNode->AsHWIntrinsic()->SetSimdBaseJitType(CORINFO_TYPE_LONG);
+                        }
                         break;
 
                     default:

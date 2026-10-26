@@ -385,6 +385,8 @@ public:
 #if defined(TARGET_XARCH)
     simd32_t GetConstantSimd32(ValueNum argVN);
     simd64_t GetConstantSimd64(ValueNum argVN);
+#elif defined(TARGET_LOONGARCH64)
+    simd32_t GetConstantSimd32(ValueNum argVN);
 #endif // TARGET_XARCH
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
     simdmask_t GetConstantSimdMask(ValueNum argVN);
@@ -472,6 +474,10 @@ public:
     ValueNum VNForSimd32Con(const simd32_t& cnsVal);
     ValueNum VNForSimd64Con(const simd64_t& cnsVal);
 #endif // TARGET_XARCH
+#if defined(TARGET_LOONGARCH64)
+    ValueNum VNForSimd32Con(const simd32_t& cnsVal);
+#endif
+
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
     ValueNum VNForSimdMaskCon(const simdmask_t& cnsVal);
 #endif // FEATURE_MASKED_HW_INTRINSICS
@@ -1989,6 +1995,43 @@ private:
     }
 #endif // TARGET_XARCH
 
+#if defined(TARGET_LOONGARCH64)
+    struct Simd32PrimitiveKeyFuncs : public JitKeyFuncsDefEquals<simd32_t>
+    {
+        static bool Equals(const simd32_t& x, const simd32_t& y)
+        {
+            return x == y;
+        }
+
+        static unsigned GetHashCode(const simd32_t& val)
+        {
+            unsigned hash = 0;
+
+            hash = static_cast<unsigned>(hash ^ val.u32[0]);
+            hash = static_cast<unsigned>(hash ^ val.u32[1]);
+            hash = static_cast<unsigned>(hash ^ val.u32[2]);
+            hash = static_cast<unsigned>(hash ^ val.u32[3]);
+            hash = static_cast<unsigned>(hash ^ val.u32[4]);
+            hash = static_cast<unsigned>(hash ^ val.u32[5]);
+            hash = static_cast<unsigned>(hash ^ val.u32[6]);
+            hash = static_cast<unsigned>(hash ^ val.u32[7]);
+
+            return hash;
+        }
+    };
+
+    typedef VNMap<simd32_t, Simd32PrimitiveKeyFuncs> Simd32ToValueNumMap;
+    Simd32ToValueNumMap*                             m_simd32CnsMap;
+    Simd32ToValueNumMap*                             GetSimd32CnsMap()
+    {
+        if (m_simd32CnsMap == nullptr)
+        {
+            m_simd32CnsMap = new (m_alloc) Simd32ToValueNumMap(m_alloc);
+        }
+        return m_simd32CnsMap;
+    }
+#endif
+
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
     struct SimdMaskPrimitiveKeyFuncs : public JitKeyFuncsDefEquals<simdmask_t>
     {
@@ -2203,6 +2246,15 @@ struct ValueNumStore::VarTypConv<TYP_SIMD64>
 };
 #endif // TARGET_XARCH
 
+#if defined(TARGET_LOONGARCH64)
+template <>
+struct ValueNumStore::VarTypConv<TYP_SIMD32>
+{
+    typedef simd32_t Type;
+    typedef simd32_t Lang;
+};
+#endif
+
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
 template <>
 struct ValueNumStore::VarTypConv<TYP_MASK>
@@ -2288,6 +2340,15 @@ FORCEINLINE simd64_t ValueNumStore::SafeGetConstantValue<simd64_t>(Chunk* c, uns
 }
 #endif // TARGET_XARCH
 
+#if defined(TARGET_LOONGARCH64)
+template <>
+FORCEINLINE simd32_t ValueNumStore::SafeGetConstantValue<simd32_t>(Chunk* c, unsigned offset)
+{
+    assert(c->m_typ == TYP_SIMD32);
+    return reinterpret_cast<VarTypConv<TYP_SIMD32>::Lang*>(c->m_defs)[offset];
+}
+#endif
+
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
 template <>
 FORCEINLINE simdmask_t ValueNumStore::SafeGetConstantValue<simdmask_t>(Chunk* c, unsigned offset)
@@ -2368,6 +2429,22 @@ FORCEINLINE simd64_t ValueNumStore::ConstantValueInternal<simd64_t>(ValueNum vn 
     return SafeGetConstantValue<simd64_t>(c, offset);
 }
 #endif // TARGET_XARCH
+
+#if defined(TARGET_LOONGARCH64)
+template <>
+FORCEINLINE simd32_t ValueNumStore::ConstantValueInternal<simd32_t>(ValueNum vn DEBUGARG(bool coerce))
+{
+    Chunk* c = m_chunks.GetNoExpand(GetChunkNum(vn));
+    assert(c->m_attribs == CEA_Const);
+
+    unsigned offset = ChunkOffset(vn);
+
+    assert(c->m_typ == TYP_SIMD32);
+    assert(!coerce);
+
+    return SafeGetConstantValue<simd32_t>(c, offset);
+}
+#endif
 
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
 template <>

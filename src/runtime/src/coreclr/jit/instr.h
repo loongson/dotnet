@@ -609,6 +609,9 @@ enum emitAttr : unsigned
                 EA_32BYTE        = 0x020,
                 EA_64BYTE        = 0x040,
                 EA_SIZE_MASK     = 0x07F,
+#elif defined(TARGET_LOONGARCH64)
+                EA_32BYTE        = 0x020,
+                EA_SIZE_MASK     = 0x03F,
 #else
                 EA_SIZE_MASK     = 0x01F,
 #endif

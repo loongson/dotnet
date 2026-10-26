@@ -118,6 +118,8 @@ namespace Thunkerator
         {
             if (arch == "X64")
                 return "AMD64";
+           if (arch == "LoongArch64")
+               return "LOONGARCH64";
             if (arch == "RiscV64")
                 return "RISCV64";
             return arch;
@@ -826,6 +828,10 @@ namespace Internal.JitInterface
                 case TargetArchitecture.X64:
                 case TargetArchitecture.X86:
                     platformIntrinsicNamespace = ""System.Runtime.Intrinsics.X86"";
+                    break;
+
+                case TargetArchitecture.LoongArch64:
+                    platformIntrinsicNamespace = ""System.Runtime.Intrinsics.LoongArch"";
                     break;
 
                 default:

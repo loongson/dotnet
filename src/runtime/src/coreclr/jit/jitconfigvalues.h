@@ -386,12 +386,7 @@ CONFIG_INTEGER(JitStressEvexEncoding, "JitStressEvexEncoding", 0)
 //
 // Hardware Intrinsic ISAs; keep in sync with clrconfigvalues.h
 //
-#if defined(TARGET_LOONGARCH64)
-//TODO: should implement LoongArch64's features.
-RELEASE_CONFIG_INTEGER(EnableHWIntrinsic,           "EnableHWIntrinsic",         0) // Allows Base+ hardware intrinsics to be disabled
-#else
 RELEASE_CONFIG_INTEGER(EnableHWIntrinsic,           "EnableHWIntrinsic",         1) // Allows Base+ hardware intrinsics to be disabled
-#endif // defined(TARGET_LOONGARCH64)
 
 #if defined(TARGET_AMD64) || defined(TARGET_X86)
 RELEASE_CONFIG_INTEGER(EnableSSE42,                 "EnableSSE42",               1) // Allows SSE3, SSSE3, SSE4.1, SSE4.2, POPCNT, and dependent hardware intrinsics to be disabled
@@ -429,6 +424,12 @@ RELEASE_CONFIG_INTEGER(EnableArm64Sve2,             "EnableArm64Sve2",          
 #elif defined(TARGET_RISCV64)
 RELEASE_CONFIG_INTEGER(EnableRiscV64Zba,            "EnableRiscV64Zba",          1) // Allows RiscV64 Zba hardware intrinsics to be disabled
 RELEASE_CONFIG_INTEGER(EnableRiscV64Zbb,            "EnableRiscV64Zbb",          1) // Allows RiscV64 Zbb hardware intrinsics to be disabled
+#elif defined(TARGET_LOONGARCH64)
+RELEASE_CONFIG_INTEGER(EnableLoongArch64LAM_BH,    "EnableLoongArch64LAM_BH",    1) // Allows LoongArch64 LAM_BH+ hardware intrinsics to be disabled
+RELEASE_CONFIG_INTEGER(EnableLoongArch64LAM_CAS,   "EnableLoongArch64LAM_CAS",   1) // Allows LoongArch64 LAM_CAS+ hardware intrinsics to be disabled
+RELEASE_CONFIG_INTEGER(EnableLoongArch64LSX,        "EnableLoongArch64LSX",      1) // Allows LoongArch64 LSX hardware intrinsics to be disabled
+RELEASE_CONFIG_INTEGER(EnableLoongArch64LASX,       "EnableLoongArch64LASX",     1) // Allows LoongArch64 LASX hardware intrinsics to be disabled
+RELEASE_CONFIG_INTEGER(EnableLoongArch64FRECIPE,    "EnableLoongArch64FRECIPE",  1) // Allows LoongArch64 FRECIPE hardware intrinsics to be disabled
 #endif
 
 RELEASE_CONFIG_INTEGER(EnableEmbeddedBroadcast,     "EnableEmbeddedBroadcast",   1) // Allows embedded broadcasts to be disabled

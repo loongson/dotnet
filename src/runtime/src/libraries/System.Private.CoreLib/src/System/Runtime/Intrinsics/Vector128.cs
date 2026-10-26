@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.Wasm;
 using System.Runtime.Intrinsics.X86;
+using System.Runtime.Intrinsics.LoongArch;
 
 namespace System.Runtime.Intrinsics
 {
@@ -4389,11 +4390,16 @@ namespace System.Runtime.Intrinsics
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [CompExactlyDependsOn(typeof(AdvSimd.Arm64))]
         [CompExactlyDependsOn(typeof(Sse2))]
+        [CompExactlyDependsOn(typeof(Lsx))]
         internal static Vector128<byte> UnpackLow(Vector128<byte> left, Vector128<byte> right)
         {
             if (Sse2.IsSupported)
             {
                 return Sse2.UnpackLow(left, right);
+            }
+            else if (Lsx.IsSupported)
+            {
+                return Lsx.VectorElementsFusionLower(left, right);
             }
             else if (!AdvSimd.Arm64.IsSupported)
             {
@@ -4405,11 +4411,16 @@ namespace System.Runtime.Intrinsics
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [CompExactlyDependsOn(typeof(AdvSimd.Arm64))]
         [CompExactlyDependsOn(typeof(Sse2))]
+        [CompExactlyDependsOn(typeof(Lsx))]
         internal static Vector128<byte> UnpackHigh(Vector128<byte> left, Vector128<byte> right)
         {
             if (Sse2.IsSupported)
             {
                 return Sse2.UnpackHigh(left, right);
+            }
+            else if (Lsx.IsSupported)
+            {
+                return Lsx.VectorElementsFusionHight(left, right);
             }
             else if (!AdvSimd.Arm64.IsSupported)
             {

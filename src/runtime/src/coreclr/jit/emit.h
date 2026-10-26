@@ -671,9 +671,14 @@ protected:
         static_assert_no_msg(INS_count <= 2048);
         instruction _idIns : 11;
 #elif defined(TARGET_LOONGARCH64)
+#ifdef FEATURE_SIMD
+        static_assert_no_msg(INS_count <= 2048);
+        instruction _idIns : 11;
+#else
         // TODO-LoongArch64: not include SIMD-vector.
         static_assert_no_msg(INS_count <= 512);
         instruction _idIns : 9;
+#endif
 #else
         static_assert_no_msg(INS_count <= 256);
         instruction _idIns : 8;
@@ -908,7 +913,13 @@ protected:
 #define ID_EXTRA_BITFIELD_BITS (16)
 #elif defined(TARGET_ARM64)
 #define ID_EXTRA_BITFIELD_BITS (23)
-#elif defined(TARGET_LOONGARCH64) || defined(TARGET_RISCV64)
+#elif defined(TARGET_LOONGARCH64)
+#ifdef FEATURE_SIMD
+#define ID_EXTRA_BITFIELD_BITS (16)
+#else
+#define ID_EXTRA_BITFIELD_BITS (14)
+#endif
+#elif defined(TARGET_RISCV64)
 #define ID_EXTRA_BITFIELD_BITS (14)
 #elif defined(TARGET_X86)
 #define ID_EXTRA_BITFIELD_BITS (18)
@@ -2702,7 +2713,10 @@ private:
 #if defined(TARGET_XARCH)
     CORINFO_FIELD_HANDLE emitSimdConst(simd_t* constValue, emitAttr attr);
     void                 emitSimdConstCompressedLoad(simd_t* constValue, emitAttr attr, regNumber targetReg);
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64)
+    CORINFO_FIELD_HANDLE emitSimd32Const(simd32_t constValue);
+#endif // TARGET_XARCH && TARGET_LOONGARCH64
+
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
     CORINFO_FIELD_HANDLE emitSimdMaskConst(simdmask_t constValue);
 #endif // FEATURE_MASKED_HW_INTRINSICS
