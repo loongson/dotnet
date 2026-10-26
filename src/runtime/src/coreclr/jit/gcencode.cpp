@@ -3802,7 +3802,7 @@ public:
             printf("Set WantsReportOnlyLeaf.\n");
         }
     }
-#elif defined(TARGET_ARMARCH)
+#elif defined(TARGET_ARMARCH) || defined(TARGET_LOONGARCH64)
     void SetHasTailCalls()
     {
         m_gcInfoEncoder->SetHasTailCalls();
@@ -3900,10 +3900,16 @@ void GCInfo::gcInfoBlockHdrSave(GcInfoEncoder* gcInfoEncoder, unsigned methodSiz
             //
             const int osrOffset = ppInfo->GenericContextArgOffset() - 2 * REGSIZE_BYTES;
             assert(offset == osrOffset);
-#elif defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
+#elif defined(TARGET_ARM64)
             // PP info has virtual offset. This is also the caller SP offset.
             //
             const int osrOffset = ppInfo->GenericContextArgOffset();
+            assert(offset == osrOffset);
+#elif defined(TARGET_LOONGARCH64)
+            // PP info has FP relative offset, to get to caller SP we need to
+            // subtract off the Tier0 SPtoFPdelta.
+            //
+            const int osrOffset = ppInfo->GenericContextArgOffset() - (ppInfo->TotalFrameSize() - ppInfo->CalleeSaveRegisters());
             assert(offset == osrOffset);
 #endif
         }
@@ -3943,10 +3949,16 @@ void GCInfo::gcInfoBlockHdrSave(GcInfoEncoder* gcInfoEncoder, unsigned methodSiz
             //
             const int osrOffset = ppInfo->KeptAliveThisOffset() - 2 * REGSIZE_BYTES;
             assert(offset == osrOffset);
-#elif defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
+#elif defined(TARGET_ARM64)
             // PP info has virtual offset. This is also the caller SP offset.
             //
             const int osrOffset = ppInfo->KeptAliveThisOffset();
+            assert(offset == osrOffset);
+#elif defined(TARGET_LOONGARCH64)
+            // PP info has FP relative offset, to get to caller SP we need to
+            // subtract off the Tier0 SPtoFPdelta.
+            //
+            const int osrOffset = ppInfo->KeptAliveThisOffset() - (ppInfo->TotalFrameSize() - ppInfo->CalleeSaveRegisters());
             assert(offset == osrOffset);
 #endif
         }
@@ -3993,12 +4005,12 @@ void GCInfo::gcInfoBlockHdrSave(GcInfoEncoder* gcInfoEncoder, unsigned methodSiz
 
 #endif // FEATURE_EH_FUNCLETS
 
-#ifdef TARGET_ARMARCH
+#if defined(TARGET_ARMARCH) || defined(TARGET_LOONGARCH64)
     if (compiler->codeGen->GetHasTailCalls())
     {
         gcInfoEncoderWithLog->SetHasTailCalls();
     }
-#endif // TARGET_ARMARCH
+#endif // TARGET_ARMARCH || TARGET_LOONGARCH64
 
 #if FEATURE_FIXED_OUT_ARGS
     // outgoing stack area size

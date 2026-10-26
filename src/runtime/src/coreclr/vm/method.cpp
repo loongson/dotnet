@@ -1180,7 +1180,26 @@ ReturnKind MethodDesc::ParseReturnKindFromSig(INDEBUG(bool supportStringConstruc
                             ReturnKind structReturnKind = GetStructReturnKind(regKinds[0], regKinds[1]);
                             return structReturnKind;
                         }
-#endif // UNIX_AMD64_ABI
+#elif defined(TARGET_LOONGARCH64)
+                        if (pReturnTypeMT->IsRegPassedStruct())
+                        {
+                            ReturnKind regKinds[2] = { RT_Unset, RT_Unset };
+                            int RSFlag = MethodTable::GetLoongArch64ReturnStructElementType(pReturnTypeMT);
+
+                            regKinds[0] = LoongArch64ClassificationReturnKind((CorElementType)(RSFlag & 0xff));
+                            regKinds[1] = LoongArch64ClassificationReturnKind((CorElementType)((RSFlag >> 8) & 0xff));
+
+                            ReturnKind structReturnKind = GetStructReturnKind(regKinds[0], regKinds[1]);
+
+                            if ((structReturnKind == 0) && pReturnTypeMT->IsByRefLike())
+                            {
+                                // The Scalar return type with pReturnTypeMT->IsByRefLike() is unexpected illegal.
+                                return RT_Illegal;
+                            }
+
+                            return structReturnKind;
+                        }
+#endif // UNIX_AMD64_ABI || TARGET_LOONGARCH64
 
                         if (pReturnTypeMT->ContainsPointers() || pReturnTypeMT->IsByRefLike())
                         {

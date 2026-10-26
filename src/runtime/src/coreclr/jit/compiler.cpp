@@ -5643,12 +5643,18 @@ void Compiler::generatePatchpointInfo()
     //
     const int totalFrameSize = codeGen->genTotalFrameSize() + TARGET_POINTER_SIZE;
     const int offsetAdjust   = 0;
-#elif defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
+#elif defined(TARGET_ARM64)
     // SP is not manipulated by calls so no frame size adjustment needed.
     // Local Offsets may need adjusting, if FP is at bottom of frame.
     //
     const int totalFrameSize = codeGen->genTotalFrameSize();
     const int offsetAdjust   = codeGen->genSPtoFPdelta() - totalFrameSize;
+#elif defined(TARGET_LOONGARCH64)
+    // SP is not manipulated by calls so no frame size adjustment needed.
+    // Local Offsets may need adjusting.
+    //
+    const int totalFrameSize = codeGen->genTotalFrameSize();
+    const int offsetAdjust   = 0;
 #else
     NYI("patchpoint info generation");
     const int offsetAdjust   = 0;
@@ -5740,6 +5746,9 @@ void Compiler::generatePatchpointInfo()
     JITDUMP("--OSR-- Tier0 callee saves: ");
     JITDUMPEXEC(dspRegMask((regMaskTP)patchpointInfo->CalleeSaveRegisters()));
     JITDUMP("\n");
+#elif defined(TARGET_LOONGARCH64)
+    patchpointInfo->SetCalleeSaveRegisters(codeGen->genSPtoFPdelta());
+    JITDUMP("--OSR-- Tier0 callee saved Offset: %d \n", patchpointInfo->CalleeSaveRegisters());
 #endif
 
     // Register this with the runtime.

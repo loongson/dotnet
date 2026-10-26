@@ -445,10 +445,9 @@ typedef struct DECLSPEC_ALIGN(16) _T_CONTEXT {
     DWORD64 Pc;
 
     //
-    // Floating Point Registers
+    // Floating Point Registers: FPR64/LSX/LASX.
     //
-    //TODO-LoongArch64: support the SIMD.
-    ULONGLONG F[32];
+    ULONGLONG F[4*32];
     DWORD64 Fcc;
     DWORD   Fcsr;
 } T_CONTEXT, *PT_CONTEXT;
@@ -706,8 +705,6 @@ typedef struct _T_KNONVOLATILE_CONTEXT_POINTERS {
 #elif defined(TARGET_LINUX) && defined(TARGET_AMD64)
 #define DAC_CS_NATIVE_DATA_SIZE 96
 #elif defined(TARGET_LINUX) && defined(TARGET_S390X)
-#define DAC_CS_NATIVE_DATA_SIZE 96
-#elif defined(TARGET_LINUX) && defined(TARGET_LOONGARCH64)
 #define DAC_CS_NATIVE_DATA_SIZE 96
 #elif defined(TARGET_LINUX) && defined(TARGET_RISCV64)
 #define DAC_CS_NATIVE_DATA_SIZE 96

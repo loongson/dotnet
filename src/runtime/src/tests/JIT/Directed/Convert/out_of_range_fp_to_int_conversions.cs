@@ -387,6 +387,7 @@ namespace FPBehaviorApp
                     break;
 
                 case Architecture.Arm64:
+                case Architecture.LoongArch64:
                     Program.ManagedConversionRule = FPtoIntegerConversionType.CONVERT_SATURATING;
                     break;
             }

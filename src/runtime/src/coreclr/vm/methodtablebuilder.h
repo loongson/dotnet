@@ -2911,6 +2911,11 @@ private:
 
 #endif // UNIX_AMD64_ABI
 
+#ifdef TARGET_LOONGARCH64
+    // checks whether the struct is enregisterable.
+    void LoongArch64CheckForPassStructInRegister();
+#endif // TARGET_LOONGARCH64
+
     // this accesses the field size which is temporarily stored in m_pMTOfEnclosingClass
     // during class loading. Don't use any other time
     DWORD GetFieldSize(FieldDesc *pFD);
