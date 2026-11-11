@@ -93,7 +93,7 @@ internal class Program
             Directory.Delete(outDir, true);
         }
         Directory.CreateDirectory(outDir);
-        ProcessStartInfo processStartInfo = new ProcessStartInfo(coreRunPath, $"{superIlcPath} compile-directory -cr {coreRootPath} -in {compilationInputFolder} --nojit --noexe --large-bubble --release --nocleanup -out {outDir}");
+        ProcessStartInfo processStartInfo = new ProcessStartInfo(coreRunPath, $"{superIlcPath} compile-directory -cr {coreRootPath} -in {compilationInputFolder} -ct 15 -et 15 --nojit --noexe --large-bubble --release --nocleanup -out {outDir}");
         var process = Process.Start(processStartInfo);
         process.WaitForExit();
         if (process.ExitCode != 0)

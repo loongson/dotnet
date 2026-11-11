@@ -515,6 +515,38 @@ typedef DPTR(SystemVStructRegisterPassingHelper) SystemVStructRegisterPassingHel
 
 #endif // UNIX_AMD64_ABI_ITF
 
+#ifdef TARGET_LOONGARCH64
+inline ReturnKind LoongArch64ClassificationReturnKind(CorElementType eeType)
+{
+    _ASSERTE(((unsigned)eeType) < ELEMENT_TYPE_MAX);
+
+    switch (eeType)
+    {
+        case ELEMENT_TYPE_STRING:
+        case ELEMENT_TYPE_CLASS:
+        case ELEMENT_TYPE_VAR:
+        case ELEMENT_TYPE_ARRAY:
+        case ELEMENT_TYPE_GENERICINST:
+        case ELEMENT_TYPE_OBJECT:
+        case ELEMENT_TYPE_SZARRAY:
+        case ELEMENT_TYPE_MVAR:
+        {
+            return RT_Object;
+        }
+        break;
+
+        case ELEMENT_TYPE_BYREF:
+        {
+            return RT_ByRef;
+        }
+        break;
+
+        default:
+            return RT_Scalar;
+    }
+};
+#endif // TARGET_LOONGARCH64
+
 //===============================================================================================
 //
 // GC data appears before the beginning of the MethodTable
@@ -781,13 +813,12 @@ public:
     void CheckRunClassInitAsIfConstructingThrowing();
 
 #if defined(TARGET_LOONGARCH64)
-    static bool IsLoongArch64OnlyOneField(MethodTable * pMT);
-    static int GetLoongArch64PassStructInRegisterFlags(CORINFO_CLASS_HANDLE clh);
+    static int GetLoongArch64PassStructInRegisterFlags(TypeHandle th);
+    static int GetLoongArch64ReturnStructElementType(MethodTable * pReturnTypeMT);
 #endif
 
 #if defined(TARGET_RISCV64)
-    static bool IsRiscv64OnlyOneField(MethodTable * pMT);
-    static int GetRiscv64PassStructInRegisterFlags(CORINFO_CLASS_HANDLE clh);
+    static int GetRiscv64PassStructInRegisterFlags(TypeHandle th);
 #endif
 
 #if defined(UNIX_AMD64_ABI_ITF)
@@ -1697,7 +1728,7 @@ public:
     bool IsNativeHFA();
     CorInfoHFAElemType GetNativeHFAType();
 
-#ifdef UNIX_AMD64_ABI
+#if defined(UNIX_AMD64_ABI) || defined(TARGET_LOONGARCH64)
     inline bool IsRegPassedStruct()
     {
         LIMITED_METHOD_CONTRACT;
@@ -3330,12 +3361,12 @@ private:
         enum_flag_IsHFA                     = 0x00000800,   // This type is an HFA (Homogeneous Floating-point Aggregate)
 #endif // FEATURE_HFA
 
-#if defined(UNIX_AMD64_ABI)
+#if defined(UNIX_AMD64_ABI) || defined(TARGET_LOONGARCH64)
 #if defined(FEATURE_HFA)
 #error "Can't define both FEATURE_HFA and UNIX_AMD64_ABI"
 #endif
-        enum_flag_IsRegStructPassed         = 0x00000800,   // This type is a System V register passed struct.
-#endif // UNIX_AMD64_ABI
+        enum_flag_IsRegStructPassed         = 0x00000800,   // This type is a System V/LoongArch64 register passed struct.
+#endif // UNIX_AMD64_ABI || TARGET_LOONGARCH64
 
         enum_flag_IsByRefLike               = 0x00001000,
 

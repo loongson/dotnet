@@ -1361,6 +1361,45 @@ unsafe class Program
                 expectedOffsetValue: 16
             );
         }
+        else if (RuntimeInformation.ProcessArchitecture == Architecture.LoongArch64)
+        {
+            // The Procedure Call Standard for LoongArch64 defines this type as having 16-byte alignment
+
+            succeeded &= Test<DefaultLayoutDefaultPacking<Vector256<byte>>>(
+                expectedSize: 48,
+                expectedOffsetByte: 0,
+                expectedOffsetValue: 16
+            );
+
+            succeeded &= Test<SequentialLayoutDefaultPacking<Vector256<byte>>>(
+                expectedSize: 48,
+                expectedOffsetByte: 0,
+                expectedOffsetValue: 16
+            );
+
+            succeeded &= Test<SequentialLayoutMaxPacking<Vector256<byte>>>(
+                expectedSize: 48,
+                expectedOffsetByte: 0,
+                expectedOffsetValue: 16
+            );
+            succeeded &= Test<AutoLayoutDefaultPacking<Vector256<byte>>>(
+                expectedSize: 48,
+                expectedOffsetByte: 0,
+                expectedOffsetValue: 16
+            );
+
+            succeeded &= Test<AutoLayoutMinPacking<Vector256<byte>>>(
+                expectedSize: 48,
+                expectedOffsetByte: 0,
+                expectedOffsetValue: 16
+            );
+
+            succeeded &= Test<AutoLayoutMaxPacking<Vector256<byte>>>(
+                expectedSize: 48,
+                expectedOffsetByte: 0,
+                expectedOffsetValue: 16
+            );
+        }
         else
         {
             succeeded &= Test<DefaultLayoutDefaultPacking<Vector256<byte>>>(

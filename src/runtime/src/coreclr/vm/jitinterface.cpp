@@ -9556,7 +9556,7 @@ uint32_t CEEInfo::getLoongArch64PassStructInRegisterFlags(CORINFO_CLASS_HANDLE c
     uint32_t size = STRUCT_NO_FLOAT_FIELD;
 
 #if defined(TARGET_LOONGARCH64)
-    size = (uint32_t)MethodTable::GetLoongArch64PassStructInRegisterFlags(cls);
+    size = (uint32_t)MethodTable::GetLoongArch64PassStructInRegisterFlags(TypeHandle(cls));
 #endif
 
     EE_TO_JIT_TRANSITION_LEAF();
@@ -9577,7 +9577,7 @@ uint32_t CEEInfo::getRISCV64PassStructInRegisterFlags(CORINFO_CLASS_HANDLE cls)
     uint32_t size = STRUCT_NO_FLOAT_FIELD;
 
 #if defined(TARGET_RISCV64)
-    size = (uint32_t)MethodTable::GetRiscv64PassStructInRegisterFlags(cls);
+    size = (uint32_t)MethodTable::GetRiscv64PassStructInRegisterFlags(TypeHandle(cls));
 #endif // TARGET_RISCV64
 
     EE_TO_JIT_TRANSITION_LEAF();
@@ -11442,6 +11442,26 @@ void CEEJitInfo::recordRelocation(void * location,
         break;
 
 #endif // TARGET_ARM64
+
+#ifdef TARGET_LOONGARCH64
+    case IMAGE_REL_LOONGARCH64_PC:
+        {
+            _ASSERTE(addlDelta == 0);
+
+            INT64 imm = (INT64)target - (INT64)location;
+            PutLoongArch64PC12((UINT32 *)locationRW, imm);
+        }
+        break;
+
+    case IMAGE_REL_LOONGARCH64_JIR:
+        {
+            _ASSERTE(addlDelta == 0);
+
+            INT64 imm = (INT64)target - (INT64)location;
+            PutLoongArch64JIR((UINT32 *)locationRW, imm);
+        }
+        break;
+#endif // TARGET_LOONGARCH64
 
     default:
         _ASSERTE(!"Unknown reloc type");

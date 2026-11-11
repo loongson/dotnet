@@ -3373,6 +3373,26 @@ void PutArm64Rel21(UINT32 * pCode, INT32 imm21);
 void PutArm64Rel12(UINT32 * pCode, INT32 imm12);
 
 //*****************************************************************************
+//  Extract the PC-Relative page address and page offset from pcaddu12i+add/ld
+//*****************************************************************************
+INT32 GetLoongArch64PC12(UINT32 * pCode);
+
+//*****************************************************************************
+//  Extract the jump offset into pcaddu18i+jirl instructions
+//*****************************************************************************
+INT64 GetLoongArch64JIR(UINT32 * pCode);
+
+//*****************************************************************************
+//  Deposit the PC-Relative page address and page offset into pcaddu12i+add/ld
+//*****************************************************************************
+void PutLoongArch64PC12(UINT32 * pCode, INT64 imm);
+
+//*****************************************************************************
+//  Deposit the jump offset into pcaddu18i+jirl instructions
+//*****************************************************************************
+void PutLoongArch64JIR(UINT32 * pCode, INT64 imm);
+
+//*****************************************************************************
 // Returns whether the offset fits into bl instruction
 //*****************************************************************************
 inline bool FitsInThumb2BlRel24(INT32 imm24)
