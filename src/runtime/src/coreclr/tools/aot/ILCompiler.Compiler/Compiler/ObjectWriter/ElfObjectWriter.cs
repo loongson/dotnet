@@ -525,6 +525,7 @@ namespace ILCompiler.ObjectWriter
                         IMAGE_REL_BASED_RELPTR32 => R_LARCH_32_PCREL,
                         IMAGE_REL_BASED_LOONGARCH64_PC => R_LARCH_PCALA_HI20,
                         IMAGE_REL_BASED_LOONGARCH64_JIR => R_LARCH_CALL36,
+                        IMAGE_REL_BASED_LOONGARCH64_BRANCH26 => R_LARCH_B26,
                         _ => throw new NotSupportedException("Unknown relocation type: " + symbolicRelocation.Type)
                     };
 

@@ -3878,7 +3878,13 @@ GenTree* Compiler::impImportStaticReadOnlyField(CORINFO_FIELD_HANDLE field, CORI
                         hwAccelerated = compOpportunisticallyDependsOn(InstructionSet_AVX);
                     }
                     else
-#endif // TARGET_XARCH
+#elif defined(TARGET_LOONGARCH64) // TARGET_XARCH
+                    if (simdType == TYP_SIMD32)
+                    {
+                        hwAccelerated = compOpportunisticallyDependsOn(InstructionSet_LASX);
+                    }
+                    else
+#endif // TARGET_LOONGARCH64
                     {
                         // SIMD8, SIMD12, SIMD16 are covered by baseline ISA requirement
                         assert((simdType == TYP_SIMD8) || (simdType == TYP_SIMD12) || (simdType == TYP_SIMD16));

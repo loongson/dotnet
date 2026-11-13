@@ -294,12 +294,12 @@ int LinearScan::BuildNode(GenTree* tree)
 
         case GT_INTRINSIC:
         {
+            // FIXME : Add NI_PRIMITIVE_LeadingZeroCouunt / NI_PRIMITIVE_TrailingZeroCount ?
             noway_assert((tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Abs) ||
                          (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Ceiling) ||
                          (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Floor) ||
                          (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Round) ||
                          (tree->AsIntrinsic()->gtIntrinsicName == NI_System_Math_Sqrt));
-
             // Both operand and its result must be of the same floating point type.
             GenTree* op1 = tree->gtGetOp1();
             assert(varTypeIsFloating(op1));
@@ -352,17 +352,64 @@ int LinearScan::BuildNode(GenTree* tree)
 
         case GT_CMPXCHG:
         {
-            NYI_LOONGARCH64("-----unimplemented on LOONGARCH64 yet----");
+            GenTreeCmpXchg* cas = tree->AsCmpXchg();
+            assert(dstCount == 1);
+            assert(!cas->Addr()->isContained() && !cas->Data()->isContained());
+            srcCount = 2;
+            setDelayFree(BuildUse(cas->Addr()));
+            setDelayFree(BuildUse(cas->Data()));
+
+            GenTree* comparand = cas->Comparand();
+            if (!comparand->isContained())
+            {
+                srcCount++;
+                setDelayFree(BuildUse(comparand));
+            }
+            else
+            {
+                assert(comparand->IsIntegralConst(0));
+            }
+
+            if (!compiler->opts.compSupportsISA.HasInstructionSet(InstructionSet_LAM_CAS))
+            {
+                buildInternalIntRegisterDefForNode(tree); // ISA1.1 temp reg for store conditional error
+            }
+            // Internals may not collide with target
+            setInternalRegsDelayFree = true;
+            buildInternalRegisterUses();
+            BuildDef(tree);
         }
         break;
 
         case GT_LOCKADD:
+        {
+            NYI_LOONGARCH64("-----unimplemented on LOONGARCH64 yet----");
+        }
+        break;
+
         case GT_XORR:
         case GT_XAND:
         case GT_XADD:
         case GT_XCHG:
         {
-            NYI_LOONGARCH64("-----unimplemented on LOONGARCH64 yet----");
+            assert(dstCount == (tree->TypeIs(TYP_VOID) ? 0 : 1));
+            GenTree* addr = tree->gtGetOp1();
+            GenTree* data = tree->gtGetOp2();
+            assert(!addr->isContained());
+
+            setDelayFree(BuildUse(addr));
+            srcCount = 1;
+            if (!data->isContained())
+            {
+                srcCount++;
+                setDelayFree(BuildUse(data));
+            }
+            else
+            {
+                assert(data->IsIntegralConst(0));
+            }
+
+            BuildDef(tree);
         }
         break;
 
@@ -596,10 +643,205 @@ int LinearScan::BuildNode(GenTree* tree)
 // Return Value:
 //    The number of sources consumed by this node.
 //
-int LinearScan::BuildHWIntrinsic(GenTreeHWIntrinsic* intrinsicTree)
+int LinearScan::BuildHWIntrinsic(GenTreeHWIntrinsic* intrinsicTree, int* pDstCount)
 {
-    NYI_LOONGARCH64("-----unimplemented on LOONGARCH64 yet----");
-    return 0;
+    assert(pDstCount != nullptr);
+
+    const HWIntrinsic intrin(intrinsicTree);
+
+    int       srcCount      = 0;
+
+    // Determine whether this is an operation where an op must be marked delayFree so that it
+    // is not allocated the same register as the target.
+    GenTree* delayFreeOp = getDelayFreeOperand(intrinsicTree);
+
+    // Determine whether this is an operation where one of the ops is an address
+    GenTree* addrOp = getVectorAddrOperand(intrinsicTree);
+
+    // Build all Operands
+    for (size_t opNum = 1; opNum <= intrin.numOperands; opNum++)
+    {
+        GenTree* operand = intrinsicTree->Op(opNum);
+
+        assert(operand != nullptr);
+
+        if (addrOp == operand)
+        {
+            assert(delayFreeOp != operand);
+
+            srcCount += BuildAddrUses(operand);
+        }
+        else if (delayFreeOp == operand)
+        {
+            if (delayFreeOp->isContained())
+            {
+                srcCount += BuildOperandUses(operand);
+            }
+            else
+            {
+                RefPosition* delayUse = BuildUse(operand);
+                srcCount += 1;
+
+                if (opNum == 1)
+                {
+                    assert(tgtPrefUse == nullptr);
+                    assert(tgtPrefUse2 == nullptr);
+                    assert(tgtPrefUse3 == nullptr);
+                    tgtPrefUse = delayUse;
+                }
+                else if (opNum == 2)
+                {
+                    assert(opNum == 2);
+                    assert(tgtPrefUse == nullptr);
+                    assert(tgtPrefUse2 == nullptr);
+                    assert(tgtPrefUse3 == nullptr);
+                    tgtPrefUse2 = delayUse;
+                }
+                else
+                {
+                    assert(opNum == 3);
+                    assert(tgtPrefUse == nullptr);
+                    assert(tgtPrefUse2 == nullptr);
+                    assert(tgtPrefUse3 == nullptr);
+                    tgtPrefUse3 = delayUse;
+                }
+            }
+        }
+        // Only build as delay free use if register types match
+        else if ((delayFreeOp != nullptr) &&
+                 (varTypeUsesSameRegType(delayFreeOp->TypeGet(), operand->TypeGet()) ||
+                  (delayFreeOp->IsMultiRegNode() && varTypeUsesFloatReg(operand->TypeGet()))))
+        {
+            srcCount += BuildDelayFreeUses(operand, delayFreeOp);
+        }
+        else
+        {
+            srcCount += BuildOperandUses(operand);
+        }
+    }
+
+    buildInternalRegisterUses();
+
+    // Build Destination
+
+    int dstCount = 0;
+
+    if (HWIntrinsicInfo::IsMultiReg(intrin.id))
+    {
+        dstCount = intrinsicTree->GetMultiRegCount(compiler);
+    }
+    else if (intrinsicTree->IsValue())
+    {
+        dstCount = 1;
+    }
+
+    if ((dstCount == 1) || (dstCount == 2))
+    {
+        BuildDef(intrinsicTree);
+
+        if (dstCount == 2)
+        {
+            BuildDef(intrinsicTree, RBM_NONE, 1);
+        }
+    }
+    else
+    {
+        assert(dstCount == 0);
+    }
+
+    *pDstCount = dstCount;
+    return srcCount;
+
+}
+
+//------------------------------------------------------------------------
+// getDelayFreeOperand: Get the delay free characteristics of the HWIntrinsic
+//
+// For a RMW intrinsic, prefer the RMW operand to the target.
+// For a simple move semantic between two SIMD registers, then prefer the source operand.
+//
+// Arguments:
+//    intrinsicTree - Tree to check
+//
+// Return Value:
+//    The operand that needs to be delay freed
+//
+GenTree* LinearScan::getDelayFreeOperand(GenTreeHWIntrinsic* intrinsicTree)
+{
+    bool isRMW = intrinsicTree->isRMWHWIntrinsic(compiler);
+
+    const NamedIntrinsic intrinsicId = intrinsicTree->GetHWIntrinsicId();
+    GenTree*             delayFreeOp = nullptr;
+
+    switch (intrinsicId)
+    {
+        case NI_Vector128_CreateScalarUnsafe:
+        case NI_Vector256_CreateScalarUnsafe:
+            if (varTypeIsFloating(intrinsicTree->Op(1)))
+            {
+                delayFreeOp = intrinsicTree->Op(1);
+                assert(delayFreeOp != nullptr);
+            }
+            break;
+
+        case NI_Vector128_ToScalar:
+        case NI_Vector256_ToScalar:
+            if (varTypeIsFloating(intrinsicTree))
+            {
+                delayFreeOp = intrinsicTree->Op(1);
+                assert(delayFreeOp != nullptr);
+            }
+            break;
+
+        case NI_Vector128_AsVector128Unsafe:
+        case NI_Vector128_AsVector3:
+        case NI_Vector128_GetLower:
+        case NI_LASX_PermuteQ:
+            delayFreeOp = intrinsicTree->Op(1);
+            assert(delayFreeOp != nullptr);
+            break;
+
+        case NI_LSX_VectorTableLookup1:
+        case NI_LASX_VectorTableLookup1:
+            delayFreeOp = intrinsicTree->Op(3);
+            assert(delayFreeOp != nullptr);
+            break;
+        default:
+            if (isRMW)
+            {
+                delayFreeOp = intrinsicTree->Op(1);
+                assert(delayFreeOp != nullptr);
+            }
+            break;
+    }
+
+    return delayFreeOp;
+}
+//------------------------------------------------------------------------
+// getVectorAddrOperand: Get the address operand of the HWIntrinsic, if any
+//
+// Arguments:
+//    intrinsicTree - Tree to check
+//
+// Return Value:
+//    The operand that is an address
+//
+GenTree* LinearScan::getVectorAddrOperand(GenTreeHWIntrinsic* intrinsicTree)
+{
+    GenTree* pAddr = nullptr;
+
+    if (intrinsicTree->OperIsMemoryLoad(&pAddr))
+    {
+        assert(pAddr != nullptr);
+        return pAddr;
+    }
+    if (intrinsicTree->OperIsMemoryStore(&pAddr))
+    {
+        assert(pAddr != nullptr);
+        return pAddr;
+    }
+
+    return nullptr;
 }
 #endif
 

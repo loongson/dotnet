@@ -58,6 +58,14 @@ static_assert((1 << ARM64_ATOMICS_FEATURE_FLAG_BIT) == ARM64IntrinsicConstants_A
 #define RiscV64IntrinsicConstants_Zbb (1 << 1)
 #endif // HOST_RISCV64
 
+#if defined(HOST_LOONGARCH64)
+#define LOONGARCH64IntrinsicConstants_LAM_BH (1 << 0)
+#define LOONGARCH64IntrinsicConstants_LAM_CAS (1 << 1)
+#define LOONGARCH64IntrinsicConstants_LSX (1 << 2)
+#define LOONGARCH64IntrinsicConstants_LASX (1 << 3)
+#define LOONGARCH64IntrinsicConstants_FRECIPE (1 << 4)
+#endif // HOST_LOONGARCH64
+
 #ifdef __cplusplus
 extern "C"
 {

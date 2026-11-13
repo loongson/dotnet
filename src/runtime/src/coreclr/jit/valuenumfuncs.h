@@ -205,6 +205,12 @@ ValueNumFuncDef(HWI_##isa##_##name, ((argCount == -1) ? -1 : (argCount + 1)), ((
 
 #elif defined (TARGET_LOONGARCH64)
     //TODO-LOONGARCH64-CQ: add LoongArch64's Hardware Intrinsics Instructions if supported.
+#define HARDWARE_INTRINSIC(isa, name, size, argCount, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, category, flag) \
+ValueNumFuncDef(HWI_##isa##_##name, ((argCount == -1) ? -1 : (argCount + 1)), ((flag) & HW_Flag_Commutative) >> 0, false, false)   // All of the HARDWARE_INTRINSICS for loongarch64
+#include "hwintrinsiclistloongarch64.h"
+#define VNF_HWI_FIRST VNF_HWI_LoongArch64Base_CyclicRedundancyCheckCastagnoli
+#define VNF_HWI_LAST  VNF_HWI_LASX_ZeroExtendWideningUpper
+
 
 #elif defined (TARGET_RISCV64)
     ValueNumFuncDef(Min_UN, 2, true, false, false)  // unsigned min/max intrinsics

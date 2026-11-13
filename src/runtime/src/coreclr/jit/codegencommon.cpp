@@ -908,6 +908,13 @@ template void Compiler::compChangeLife<true>(VARSET_VALARG_TP newLife);
  */
 void CodeGenInterface::spillReg(var_types type, TempDsc* tmp, regNumber reg)
 {
+#if defined(FEATURE_SIMD) && defined(TARGET_LOONGARCH64)
+    if (type == TYP_SIMD12)
+    {
+        GetEmitter()->emitIns_S_R_SIMD12(reg, tmp->tdTempNum(), 0);
+        return;
+    }
+#endif
     GetEmitter()->emitIns_S_R(ins_Store(type), emitActualTypeSize(type), reg, tmp->tdTempNum(), 0);
 }
 
@@ -2956,6 +2963,14 @@ void CodeGen::genSpillOrAddRegisterParam(
     if (segment.Size < genTypeSize(edgeType))
     {
         edgeType = segment.GetRegisterType();
+
+#if defined(TARGET_LOONGARCH64) && defined(FEATURE_SIMD)
+        //The SIMD Vector128 parameter is passed through two GARs for LA, so TYP_DUBLE should be used here.
+        if (varDsc->GetRegisterType() == TYP_SIMD16 || varDsc->GetRegisterType() == TYP_SIMD12)
+        {
+            edgeType = TYP_DOUBLE;
+        }
+#endif
     }
 
     RegNode* sourceReg = graph->GetOrAdd(segment.GetRegister());
@@ -3240,6 +3255,30 @@ void CodeGen::genHomeRegisterParams(regNumber initReg, bool* initRegStillZeroed)
             // to go in the lower half, and the second 8 bytes from the source
             // register to go in the upper half.
             GetEmitter()->emitIns_R_R_I(INS_shufpd, EA_16BYTE, node->reg, sourceReg, 0);
+#elif defined(TARGET_LOONGARCH64) && defined(FEATURE_SIMD)
+            // On loongarch64 SIMD TYP_SIMD16/TYP_SIMD12/TYP_SIMD8 parameters are passed in two GAR
+            // registers while we can enregister them as single registers.
+            noway_assert(edge->destOffset == 8 || edge->destOffset == 4);
+            assert(genIsValidFloatReg(node->reg));
+
+            //second 8 bytes from the source register to go in the upper half.
+            instruction ins = edge->destOffset == 4 ? INS_vinsgr2vr_w : INS_vinsgr2vr_d;
+            if (genIsValidFloatReg(sourceReg))
+            {
+                //the current ABI implementation storing TYP_SMID16(two double elements)/TYP_SMID8 parameters in two FARs.
+                //for TYP_SMID16(two double elements) should it be transmitted through two GARs to meet ABI conventions?
+                if (compiler->compOpportunisticallyDependsOn(InstructionSet_LASX))
+                {
+                    ins = edge->destOffset == 4 ? INS_xvinsve0_w : INS_xvinsve0_d;
+                }
+                else
+                {
+                    instruction ins1 = edge->destOffset == 4 ? INS_vpickve2gr_w : INS_vpickve2gr_d;
+                    GetEmitter()->emitIns_R_R_I(ins1, emitTypeSize(edge->type), REG_R21, sourceReg, 0);
+                    sourceReg = REG_R21;
+                }
+            }
+            GetEmitter()->emitIns_R_R_I(ins, emitTypeSize(edge->type), node->reg, sourceReg, 1);
 #else
             noway_assert(!"Insertion into register is not supported");
 #endif
@@ -3318,8 +3357,19 @@ void CodeGen::genEnregisterIncomingStackArgs()
         isPrespilledForProfiling =
             compiler->compIsProfilerHookNeeded() && compiler->lvaIsPreSpilled(varNum, regSet.rsMaskPreSpillRegs(false));
 #endif
+        /* For the implementation of SIMD on LA, there exists a SIMD parameter
+           SplitAcrossRegistersAndStack, which needs to be saved in a register.
+           Therefore, it is necessary to move the parameters on the stack to the high bits of the vector register.
+        */
+        bool isSplitAcrossRegistersAndStack = false;
 
-        if (varDsc->lvIsRegArg && !isPrespilledForProfiling)
+#if defined(TARGET_LOONGARCH64) && defined(FEATURE_SIMD)
+        if (varNum < compiler->info.compArgsCount)
+        {
+            isSplitAcrossRegistersAndStack = compiler->lvaGetParameterABIInfo(varNum).IsSplitAcrossRegistersAndStack() && !varDsc->lvOnFrame;
+        }
+#endif
+        if (varDsc->lvIsRegArg && !isPrespilledForProfiling && !isSplitAcrossRegistersAndStack)
         {
             continue;
         }
@@ -3348,29 +3398,59 @@ void CodeGen::genEnregisterIncomingStackArgs()
         var_types regType = varDsc->GetStackSlotHomeType();
 #ifdef TARGET_LOONGARCH64
         {
-            bool FPbased;
-            int  base = compiler->lvaFrameAddress(varNum, &FPbased);
+#if defined(FEATURE_SIMD)
+            if (isSplitAcrossRegistersAndStack)
+            {
+                const ABIPassingInformation& abiInfo = compiler->lvaGetParameterABIInfo(varNum);
+                assert(abiInfo.NumSegments == 2);
+                assert(abiInfo.Segment(0).GetRegister() == REG_ARG_LAST);
+                assert(abiInfo.Segment(1).GetStackOffset() == 0);
+                const ABIPassingSegment& seg = abiInfo.Segment(1);
+                int loadOffset = (int)seg.GetStackOffset();
 
-            if (emitter::isValidSimm12(base))
-            {
-                GetEmitter()->emitIns_R_S(ins_Load(regType), emitTypeSize(regType), regNum, varNum, 0);
-            }
-            else
-            {
-                if (tmp_reg == REG_NA)
+                var_types loadType = seg.Size == 8 ? TYP_LONG : TYP_INT;
+                instruction ins = regType == TYP_SIMD16 ? INS_vinsgr2vr_d : INS_vinsgr2vr_w;
+                emitAttr size = emitTypeSize(loadType);
+
+                if (isFramePointerUsed())
                 {
-                    regNumber reg2 = FPbased ? REG_FPBASE : REG_SPBASE;
-                    tmp_offset     = base;
-                    tmp_reg        = REG_R21;
-
-                    GetEmitter()->emitIns_I_la(EA_PTRSIZE, REG_R21, base);
-                    GetEmitter()->emitIns_R_R_R(INS_add_d, EA_PTRSIZE, REG_R21, REG_R21, reg2);
-                    GetEmitter()->emitIns_R_S(ins_Load(regType), emitTypeSize(regType), regNum, varNum, -8);
+                    loadOffset -= genCallerSPtoFPdelta();
                 }
                 else
                 {
-                    int baseOffset = -(base - tmp_offset) - 8;
-                    GetEmitter()->emitIns_R_S(ins_Load(regType), emitTypeSize(regType), regNum, varNum, baseOffset);
+                    loadOffset -= genCallerSPtoInitialSPdelta();
+                }
+                genInstrWithConstant(ins_Load(loadType), size, REG_R21, genFramePointerReg(), loadOffset, REG_R21);
+                GetEmitter()->emitIns_R_R_I(INS_vinsgr2vr_d, EA_16BYTE, regNum, REG_R21, 1);
+                regNum = REG_SCRATCH_FLT;
+            }
+            else
+#endif
+            {
+                bool FPbased;
+                int  base = compiler->lvaFrameAddress(varNum, &FPbased);
+
+                if (emitter::isValidSimm12(base))
+                {
+                    GetEmitter()->emitIns_R_S(ins_Load(regType), emitTypeSize(regType), regNum, varNum, 0);
+                }
+                else
+                {
+                    if (tmp_reg == REG_NA)
+                    {
+                        regNumber reg2 = FPbased ? REG_FPBASE : REG_SPBASE;
+                        tmp_offset     = base;
+                        tmp_reg        = REG_R21;
+
+                        GetEmitter()->emitIns_I_la(EA_PTRSIZE, REG_R21, base);
+                        GetEmitter()->emitIns_R_R_R(INS_add_d, EA_PTRSIZE, REG_R21, REG_R21, reg2);
+                        GetEmitter()->emitIns_R_S(ins_Load(regType), emitTypeSize(regType), regNum, varNum, -8);
+                    }
+                    else
+                    {
+                        int baseOffset = -(base - tmp_offset) - 8;
+                        GetEmitter()->emitIns_R_S(ins_Load(regType), emitTypeSize(regType), regNum, varNum, baseOffset);
+                    }
                 }
             }
         }
@@ -5078,7 +5158,7 @@ void CodeGen::genFnProlog()
     // offset addresses. Use a register that won't be allocated.
     if (isRoot && compiler->opts.IsOSR())
     {
-        initReg = REG_SCRATCH;
+        initReg = REG_R21;
     }
 #elif defined(TARGET_RISCV64)
     // For RISC-V64 OSR root frames, we may need a scratch register for large

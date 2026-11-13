@@ -165,6 +165,27 @@ void Rationalizer::RewriteNodeAsCall(GenTree**             use,
         call->gtType = TYP_VOID;
     }
 
+    GenTree* store =NULL;
+#if defined(TARGET_LOONGARCH64)
+#if FEATURE_MULTIREG_RET
+    if (varTypeIsStruct(call)) // It could be a SIMD returned in several regs.
+    {
+        const ReturnTypeDesc* retTypeDesc = call->GetReturnTypeDesc();
+        const unsigned        retRegCount = retTypeDesc->GetReturnRegCount();
+        if (retRegCount >= 2)
+        {
+            tmpNum = comp->lvaGrabTemp(true DEBUGARG("Return value temp for multireg return"));
+            comp->lvaSetStruct(tmpNum, sig->retTypeClass, false);
+
+            store = comp->gtNewTempStore(tmpNum, call, comp->CHECK_SPILL_ALL);
+
+            LclVarDsc* varDsc = comp->lvaGetDesc(tmpNum);
+            varDsc->SetIsMultiRegDest();
+        }
+    }
+#endif // FEATURE_MULTIREG_RET
+#endif //LOONGARCH64
+
     call = comp->fgMorphArgs(call);
 
     GenTree* result = call;
@@ -209,8 +230,20 @@ void Rationalizer::RewriteNodeAsCall(GenTree**             use,
             comp->gtSetEvalOrder(result);
             BlockRange().InsertAfter(insertionPoint, LIR::Range(comp->fgSetTreeSeq(result), result));
 
-            comp->gtSetEvalOrder(call);
-            BlockRange().InsertAfter(insertionPoint, LIR::Range(comp->fgSetTreeSeq(call), call));
+#if defined(TARGET_LOONGARCH64)
+#if FEATURE_MULTIREG_RET
+            if (store != NULL)
+            {
+                comp->gtSetEvalOrder(store);
+                BlockRange().InsertAfter(insertionPoint, LIR::Range(comp->fgSetTreeSeq(store), store));
+            }
+            else
+#endif // FEATURE_MULTIREG_RET
+#endif //LOONGARCH64
+            {
+                comp->gtSetEvalOrder(call);
+                BlockRange().InsertAfter(insertionPoint, LIR::Range(comp->fgSetTreeSeq(call), call));
+            }
         }
         else
         {
@@ -249,8 +282,16 @@ void Rationalizer::RewriteNodeAsCall(GenTree**             use,
         // so we need to make sure we visit it here.
         RationalizeVisitor visitor(*this);
         GenTree*           node = call;
+#if defined(TARGET_LOONGARCH64)
+#if FEATURE_MULTIREG_RET
+        if (store != NULL)
+        {
+            node = store;
+        }
+#endif // FEATURE_MULTIREG_RET
+#endif //LOONGARCH64
         visitor.WalkTree(&node, nullptr);
-        assert(node == call);
+        assert(node == call || node == store);
     }
 
     // Since "tree" is replaced with "result", pop "tree" node (i.e the current node)
@@ -387,11 +428,17 @@ void Rationalizer::RewriteHWIntrinsicAsUserCall(GenTree** use, ArrayStack<GenTre
         case NI_Vector64_Shuffle:
         case NI_Vector64_ShuffleNative:
         case NI_Vector64_ShuffleNativeFallback:
+#elif defined(TARGET_LOONGARCH64)
+        case NI_Vector256_Shuffle:
+        case NI_Vector256_ShuffleNative:
+        case NI_Vector256_ShuffleNativeFallback:
 #endif
         {
             assert(operandCount == 2);
 #if defined(TARGET_XARCH)
             assert((simdSize == 16) || (simdSize == 32) || (simdSize == 64));
+#elif defined(TARGET_LOONGARCH64)
+            assert((simdSize == 16) || (simdSize == 32));
 #else
             assert((simdSize == 8) || (simdSize == 16));
 #endif
@@ -406,6 +453,8 @@ void Rationalizer::RewriteHWIntrinsicAsUserCall(GenTree** use, ArrayStack<GenTre
                 isShuffleNative && (intrinsicId != NI_Vector256_Shuffle) && (intrinsicId != NI_Vector512_Shuffle);
 #elif defined(TARGET_ARM64)
             isShuffleNative = isShuffleNative && (intrinsicId != NI_Vector64_Shuffle);
+#elif defined(TARGET_LOONGARCH64)
+            isShuffleNative = isShuffleNative && (intrinsicId != NI_Vector256_Shuffle);
 #endif
 
             // Check if the required intrinsics to emit are available.
@@ -603,6 +652,8 @@ void Rationalizer::RewriteHWIntrinsic(GenTree** use, Compiler::GenTreeStack& par
 #if defined(TARGET_ARM64)
         case NI_Vector64_ExtractMostSignificantBits:
 #elif defined(TARGET_XARCH)
+        case NI_Vector256_ExtractMostSignificantBits:
+#elif defined(TARGET_LOONGARCH64)
         case NI_Vector256_ExtractMostSignificantBits:
 #endif
         case NI_Vector128_ExtractMostSignificantBits:
@@ -1610,6 +1661,100 @@ void Rationalizer::RewriteHWIntrinsicExtractMsb(GenTree** use, Compiler::GenTree
     node->SetSimdSize(simdSize);
     node->SetSimdBaseJitType(simdBaseJitType);
     node->Op(1) = op1;
+#elif defined(TARGET_LOONGARCH64)
+
+    NamedIntrinsic moveMaskIntrinsic = NI_LSX_MoveMask;
+
+    if (simdSize == 32)
+    {
+        assert(comp->compOpportunisticallyDependsOn(InstructionSet_LASX));
+        moveMaskIntrinsic = NI_LASX_MoveMask;
+    }
+    GenTree* tmp = comp->gtNewSimdHWIntrinsicNode(simdType, op1, moveMaskIntrinsic, simdBaseJitType, simdSize);
+    BlockRange().InsertAfter(op1, tmp);
+    op1 = tmp;
+
+    if (simdSize == 32)
+    {
+        assert(comp->compOpportunisticallyDependsOn(InstructionSet_LASX));
+        //Since Vector256 is 2x128-bit lanes we need to move all the sign bits in the high 128 bits
+        //to the front of the sign bits in the low 128 bits.
+
+        GenTree* icon = comp->gtNewIconNode(0xD8);
+        BlockRange().InsertAfter(op1, icon);
+        tmp = comp->gtNewSimdHWIntrinsicNode(simdType, op1, icon, NI_LASX_Permute, CORINFO_TYPE_ULONG, simdSize);
+        BlockRange().InsertAfter(icon, tmp);
+        op1 = tmp;
+
+        simdType = TYP_SIMD16;
+        simdSize = 16;
+        GenTreeVecCon* vecCon = comp->gtNewVconNode(simdType);
+        switch (simdBaseType)
+        {
+            case TYP_BYTE:
+            case TYP_UBYTE:
+            {
+                vecCon->gtSimdVal.u64[0] = 0x0000000000000000;
+                vecCon->gtSimdVal.u64[1] = 0x0000000000000010;
+                break;
+            }
+
+            case TYP_SHORT:
+            case TYP_USHORT:
+            {
+                vecCon->gtSimdVal.u64[0] = 0x0000000000000000;
+                vecCon->gtSimdVal.u64[1] = 0x0000000000000008;
+                break;
+            }
+
+            case TYP_INT:
+            case TYP_UINT:
+            case TYP_FLOAT:
+            {
+                vecCon->gtSimdVal.u64[0] = 0x0000000000000000;
+                vecCon->gtSimdVal.u64[1] = 0x0000000000000004;
+                break;
+            }
+
+            case TYP_LONG:
+            case TYP_ULONG:
+            case TYP_DOUBLE:
+            {
+                vecCon->gtSimdVal.u64[0] = 0x0000000000000000;
+                vecCon->gtSimdVal.u64[1] = 0x0000000000000002;
+                break;
+            }
+
+            default:
+            {
+                unreached();
+            }
+        }
+
+        BlockRange().InsertAfter(op1, vecCon);
+        tmp = comp->gtNewSimdHWIntrinsicNode(simdType, op1, vecCon, NI_LSX_ShiftLeftLogical, CORINFO_TYPE_ULONG, simdSize);
+        BlockRange().InsertAfter(vecCon, tmp);
+        op1 = tmp;
+
+        LIR::Use op1Use;
+        LIR::Use::MakeDummyUse(BlockRange(), op1, &op1Use);
+
+        op1Use.ReplaceWithLclVar(comp);
+        op1 = op1Use.Def();
+
+        GenTree* op2 = comp->gtClone(op1);
+        BlockRange().InsertAfter(op1, op2);
+        tmp = comp->gtNewSimdHWIntrinsicNode(simdType, op1, op2, NI_LSX_AddWideningLowerAndUpper, CORINFO_TYPE_ULONG, simdSize);
+        BlockRange().InsertAfter(op2, tmp);
+        op1 = tmp;
+    }
+
+    node->gtType = genActualType(TYP_UINT);
+    node->ChangeHWIntrinsicId(NI_Vector128_ToScalar);
+    node->SetSimdSize(simdSize);
+    node->SetSimdBaseJitType(CORINFO_TYPE_UINT);
+    node->Op(1) = op1;
+
 #else
     unreached();
 #endif

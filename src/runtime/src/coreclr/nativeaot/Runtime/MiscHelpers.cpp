@@ -371,6 +371,15 @@ FCIMPL1(uint8_t *, RhGetCodeTarget, uint8_t * pCodeOrg)
         distToTarget += ((((int64_t)pCode[1] & ~0x3ff) << 38) >> 46);
         return (uint8_t *)((int64_t)pCode + distToTarget);
     }
+    // is this an unboxing stub followed by a relative jump?
+    // b imm28;
+    else if (unboxingStub && (pCode[0] & 0xfc000000) == 0x50000000)
+    {
+        // relative jump - dist is relative to the instruction
+        // offset = SignExtend(immhi10:immlo16:'00', 64);
+        int64_t distToTarget = ((((int64_t)pCode[0] & 0x3ff) << 54) >> 36) | (((int64_t)pCode[0] & 0x3fffc00) >> 8);
+        return (uint8_t *)((int64_t)pCode + distToTarget);
+    }
 
 #elif TARGET_RISCV64
     uint32_t * pCode = (uint32_t *)pCodeOrg;

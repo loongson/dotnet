@@ -70,12 +70,23 @@ function(create_standalone_jit)
     target_compile_definitions(${TARGETDETAILS_TARGET} PRIVATE FEATURE_HW_INTRINSICS)
     target_compile_definitions(${TARGETDETAILS_TARGET} PRIVATE FEATURE_MASKED_HW_INTRINSICS)
   endif ()
+
+  if (TARGETDETAILS_ARCH STREQUAL "loongarch64")
+    target_compile_definitions(${TARGETDETAILS_TARGET} PRIVATE FEATURE_SIMD)
+    target_compile_definitions(${TARGETDETAILS_TARGET} PRIVATE FEATURE_HW_INTRINSICS)
+  endif ()
+
 endfunction()
 
 if (CLR_CMAKE_TARGET_ARCH_AMD64 OR CLR_CMAKE_TARGET_ARCH_ARM64 OR (CLR_CMAKE_TARGET_ARCH_I386 AND NOT CLR_CMAKE_HOST_UNIX))
   add_compile_definitions($<$<NOT:$<BOOL:$<TARGET_PROPERTY:IGNORE_DEFAULT_TARGET_ARCH>>>:FEATURE_SIMD>)
   add_compile_definitions($<$<NOT:$<BOOL:$<TARGET_PROPERTY:IGNORE_DEFAULT_TARGET_ARCH>>>:FEATURE_HW_INTRINSICS>)
   add_compile_definitions($<$<NOT:$<BOOL:$<TARGET_PROPERTY:IGNORE_DEFAULT_TARGET_ARCH>>>:FEATURE_MASKED_HW_INTRINSICS>)
+endif ()
+
+if (CLR_CMAKE_TARGET_ARCH_LOONGARCH64)
+  add_compile_definitions($<$<NOT:$<BOOL:$<TARGET_PROPERTY:IGNORE_DEFAULT_TARGET_ARCH>>>:FEATURE_SIMD>)
+  add_compile_definitions($<$<NOT:$<BOOL:$<TARGET_PROPERTY:IGNORE_DEFAULT_TARGET_ARCH>>>:FEATURE_HW_INTRINSICS>)
 endif ()
 
 # JIT_BUILD disables certain PAL_TRY debugging features
@@ -266,6 +277,9 @@ set( JIT_LOONGARCH64_SOURCES
   lsraloongarch64.cpp
   targetloongarch64.cpp
   unwindloongarch64.cpp
+  simd.cpp
+  hwintrinsicloongarch64.cpp
+  hwintrinsiccodegenloongarch64.cpp
 )
 
 set( JIT_RISCV64_SOURCES
@@ -439,6 +453,7 @@ set( JIT_LOONGARCH64_HEADERS
     emitfmtsloongarch64.h
     instrsloongarch64.h
     registerloongarch64.h
+    hwintrinsiclistloongarch64.h
 )
 
 set( JIT_RISCV64_HEADERS

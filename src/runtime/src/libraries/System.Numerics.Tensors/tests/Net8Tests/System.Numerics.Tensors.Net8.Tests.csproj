@@ -11,9 +11,10 @@
     <TargetFramework>$(NetCoreAppCurrent)</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DefineConstants>$(DefineConstants);SNT_NET8_TESTS</DefineConstants>
+    <SkipTestsOnPlatform Condition="'$(TargetArchitecture)' == 'loongarch64'">true</SkipTestsOnPlatform>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition=" '$(SkipTestsOnPlatform)' != 'true'">
     <Compile Include="..\Helpers.cs" />
     <Compile Include="..\TensorPrimitives.NonGeneric.Single.cs" />
     <Compile Include="..\TensorPrimitivesTests.cs" />
@@ -22,7 +23,7 @@
     <Compile Include="..\TensorPrimitives.Generic.cs" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition=" '$(SkipTestsOnPlatform)' != 'true'">
     <ProjectReference Include="..\..\src\System.Numerics.Tensors.csproj" SkipUseReferenceAssembly="true">
       <SetTargetFramework>TargetFramework=net8.0</SetTargetFramework>
     </ProjectReference>

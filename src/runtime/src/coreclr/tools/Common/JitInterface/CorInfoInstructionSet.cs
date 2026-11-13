@@ -43,6 +43,16 @@ namespace Internal.JitInterface
         ARM64_Sha256_Arm64 = InstructionSet_ARM64.Sha256_Arm64,
         ARM64_Sve_Arm64 = InstructionSet_ARM64.Sve_Arm64,
         ARM64_Sve2_Arm64 = InstructionSet_ARM64.Sve2_Arm64,
+        LoongArch64_LoongArch64Base = InstructionSet_LoongArch64.LoongArch64Base,
+        LoongArch64_LAM_BH = InstructionSet_LoongArch64.LAM_BH,
+        LoongArch64_LAM_CAS = InstructionSet_LoongArch64.LAM_CAS,
+        LoongArch64_LSX = InstructionSet_LoongArch64.LSX,
+        LoongArch64_LASX = InstructionSet_LoongArch64.LASX,
+        LoongArch64_Vector128 = InstructionSet_LoongArch64.Vector128,
+        LoongArch64_Vector256 = InstructionSet_LoongArch64.Vector256,
+        LoongArch64_VectorT128 = InstructionSet_LoongArch64.VectorT128,
+        LoongArch64_VectorT256 = InstructionSet_LoongArch64.VectorT256,
+        LoongArch64_FRECIPE = InstructionSet_LoongArch64.FRECIPE,
         RiscV64_RiscV64Base = InstructionSet_RiscV64.RiscV64Base,
         RiscV64_Zba = InstructionSet_RiscV64.Zba,
         RiscV64_Zbb = InstructionSet_RiscV64.Zbb,
@@ -174,6 +184,22 @@ namespace Internal.JitInterface
         Sve2_Arm64 = 27,
     }
 
+    public enum InstructionSet_LoongArch64
+    {
+        ILLEGAL = InstructionSet.ILLEGAL,
+        NONE = InstructionSet.NONE,
+        LoongArch64Base = 1,
+        LAM_BH = 2,
+        LAM_CAS = 3,
+        LSX = 4,
+        LASX = 5,
+        Vector128 = 6,
+        Vector256 = 7,
+        VectorT128 = 8,
+        VectorT256 = 9,
+        FRECIPE = 10,
+    }
+
     public enum InstructionSet_RiscV64
     {
         ILLEGAL = InstructionSet.ILLEGAL,
@@ -296,6 +322,8 @@ namespace Internal.JitInterface
         private fixed ulong _flags[FlagsFieldCount];
         public IEnumerable<InstructionSet_ARM64> ARM64Flags => this.Select((x) => (InstructionSet_ARM64)x);
 
+        public IEnumerable<InstructionSet_LoongArch64> LoongArch64Flags => this.Select((x) => (InstructionSet_LoongArch64)x);
+
         public IEnumerable<InstructionSet_RiscV64> RiscV64Flags => this.Select((x) => (InstructionSet_RiscV64)x);
 
         public IEnumerable<InstructionSet_X64> X64Flags => this.Select((x) => (InstructionSet_X64)x);
@@ -416,6 +444,13 @@ namespace Internal.JitInterface
                 case InstructionSet.ARM64_Vector128: return InstructionSet.ARM64_AdvSimd;
                 }
                 break;
+            case TargetArchitecture.LoongArch64:
+                switch (input)
+                {
+                case InstructionSet.LoongArch64_Vector128: return InstructionSet.LoongArch64_LSX;
+                case InstructionSet.LoongArch64_Vector256: return InstructionSet.LoongArch64_LASX;
+                }
+                break;
             case TargetArchitecture.X64:
                 switch (input)
                 {
@@ -511,6 +546,21 @@ namespace Internal.JitInterface
                         resultflags.AddInstructionSet(InstructionSet.ARM64_AdvSimd);
                     if (resultflags.HasInstructionSet(InstructionSet.ARM64_Sve2))
                         resultflags.AddInstructionSet(InstructionSet.ARM64_Sve);
+                    break;
+
+                case TargetArchitecture.LoongArch64:
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_LSX))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_LoongArch64Base);
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_LASX))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_LSX);
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_Vector128))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_LSX);
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_Vector256))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_LASX);
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_VectorT128))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_LSX);
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_VectorT256))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_LASX);
                     break;
 
                 case TargetArchitecture.RiscV64:
@@ -789,6 +839,21 @@ namespace Internal.JitInterface
                         resultflags.AddInstructionSet(InstructionSet.ARM64_Sve2);
                     break;
 
+                case TargetArchitecture.LoongArch64:
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_LoongArch64Base))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_LSX);
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_LSX))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_LASX);
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_LSX))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_Vector128);
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_LASX))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_Vector256);
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_LSX))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_VectorT128);
+                    if (resultflags.HasInstructionSet(InstructionSet.LoongArch64_LASX))
+                        resultflags.AddInstructionSet(InstructionSet.LoongArch64_VectorT256);
+                    break;
+
                 case TargetArchitecture.RiscV64:
                     if (resultflags.HasInstructionSet(InstructionSet.RiscV64_RiscV64Base))
                         resultflags.AddInstructionSet(InstructionSet.RiscV64_Zbb);
@@ -987,6 +1052,8 @@ namespace Internal.JitInterface
                 { ("armv8.5-a",  TargetArchitecture.ARM64), "armv8.4-a" },
                 { ("armv8.6-a",  TargetArchitecture.ARM64), "armv8.5-a" },
                 { ("apple-m1",   TargetArchitecture.ARM64), "armv8.5-a" },
+                { ("loongarchv1.0", TargetArchitecture.LoongArch64), "base lsx lasx" },
+                { ("loongarchv1.1", TargetArchitecture.LoongArch64), "loongarchv1.0 lam_bh lam_cas" },
             };
 
         public static IEnumerable<string> AllCpuNames =>
@@ -1034,6 +1101,19 @@ namespace Internal.JitInterface
                     yield return new InstructionSetInfo("rcpc2", "", InstructionSet.ARM64_Rcpc2, true);
                     yield return new InstructionSetInfo("sve", "Sve", InstructionSet.ARM64_Sve, true);
                     yield return new InstructionSetInfo("sve2", "Sve2", InstructionSet.ARM64_Sve2, true);
+                    break;
+
+                case TargetArchitecture.LoongArch64:
+                    yield return new InstructionSetInfo("base", "LoongArch64Base", InstructionSet.LoongArch64_LoongArch64Base, true);
+                    yield return new InstructionSetInfo("lam_bh", "Lam_BH", InstructionSet.LoongArch64_LAM_BH, true);
+                    yield return new InstructionSetInfo("lam_cas", "Lam_CAS", InstructionSet.LoongArch64_LAM_CAS, true);
+                    yield return new InstructionSetInfo("lsx", "Lsx", InstructionSet.LoongArch64_LSX, true);
+                    yield return new InstructionSetInfo("lasx", "Lasx", InstructionSet.LoongArch64_LASX, true);
+                    yield return new InstructionSetInfo("Vector128", "", InstructionSet.LoongArch64_Vector128, false);
+                    yield return new InstructionSetInfo("Vector256", "", InstructionSet.LoongArch64_Vector256, false);
+                    yield return new InstructionSetInfo("vectort128", "VectorT128", InstructionSet.LoongArch64_VectorT128, true);
+                    yield return new InstructionSetInfo("vectort256", "VectorT256", InstructionSet.LoongArch64_VectorT256, true);
+                    yield return new InstructionSetInfo("frecipe", "", InstructionSet.LoongArch64_FRECIPE, true);
                     break;
 
                 case TargetArchitecture.RiscV64:
@@ -1218,6 +1298,9 @@ namespace Internal.JitInterface
                         AddInstructionSet(InstructionSet.ARM64_Sve2_Arm64);
                     break;
 
+                case TargetArchitecture.LoongArch64:
+                    break;
+
                 case TargetArchitecture.RiscV64:
                     break;
 
@@ -1279,6 +1362,9 @@ namespace Internal.JitInterface
                     AddInstructionSet(InstructionSet.ARM64_Sha256_Arm64);
                     AddInstructionSet(InstructionSet.ARM64_Sve_Arm64);
                     AddInstructionSet(InstructionSet.ARM64_Sve2_Arm64);
+                    break;
+
+                case TargetArchitecture.LoongArch64:
                     break;
 
                 case TargetArchitecture.RiscV64:
@@ -1359,6 +1445,10 @@ namespace Internal.JitInterface
                     platformIntrinsicNamespace = "System.Runtime.Intrinsics.X86";
                     break;
 
+                case TargetArchitecture.LoongArch64:
+                    platformIntrinsicNamespace = "System.Runtime.Intrinsics.LoongArch";
+                    break;
+
                 default:
                     return InstructionSet.ILLEGAL;
             }
@@ -1435,6 +1525,28 @@ namespace Internal.JitInterface
                         { return InstructionSet.ARM64_Sve2_Arm64; }
                         else
                         { return InstructionSet.ARM64_Sve2; }
+
+                }
+                break;
+
+                case TargetArchitecture.LoongArch64:
+                switch (typeName)
+                {
+
+                    case "LoongArch64Base":
+                        { return InstructionSet.LoongArch64_LoongArch64Base; }
+
+                    case "Lsx":
+                        { return InstructionSet.LoongArch64_LSX; }
+
+                    case "Lasx":
+                        { return InstructionSet.LoongArch64_LASX; }
+
+                    case "VectorT128":
+                        { return InstructionSet.LoongArch64_VectorT128; }
+
+                    case "VectorT256":
+                        { return InstructionSet.LoongArch64_VectorT256; }
 
                 }
                 break;

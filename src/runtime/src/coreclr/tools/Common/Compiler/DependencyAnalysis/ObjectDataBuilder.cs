@@ -299,6 +299,7 @@ namespace ILCompiler.DependencyAnalysis
 
                 case RelocType.IMAGE_REL_BASED_LOONGARCH64_PC:
                 case RelocType.IMAGE_REL_BASED_LOONGARCH64_JIR:
+                case RelocType.IMAGE_REL_BASED_LOONGARCH64_BRANCH26:
 
                 case RelocType.IMAGE_REL_BASED_RISCV64_PC:
                     Debug.Assert(delta == 0);

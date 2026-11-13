@@ -255,7 +255,9 @@ private:
         TEMP_MAX_SIZE = ZMM_REGSIZE_BYTES,
 #elif defined(TARGET_ARM64)
         TEMP_MAX_SIZE = FP_REGSIZE_BYTES,
-#endif // defined(TARGET_XARCH) || defined(TARGET_ARM64)
+#elif defined(TARGET_LOONGARCH64)
+        TEMP_MAX_SIZE = LASX_REGSIZE_BYTES,
+#endif // defined(TARGET_XARCH) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
 #else  // !FEATURE_SIMD
         TEMP_MAX_SIZE = sizeof(double),
 #endif // !FEATURE_SIMD

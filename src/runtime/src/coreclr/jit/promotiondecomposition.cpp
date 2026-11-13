@@ -388,6 +388,14 @@ private:
                         }
                         break;
 #endif
+#ifdef TARGET_LOONGARCH64
+                    case 32:
+                        if (m_compiler->getPreferredVectorByteLength() >= 32)
+                        {
+                            primitiveType = TYP_SIMD32;
+                        }
+                        break;
+#endif
 #endif
                 }
             }

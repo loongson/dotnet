@@ -99,7 +99,7 @@
         fst.d  $f6, $sp, FLOAT_ARG_OFFSET + 0x30
         fst.d  $f7, $sp, FLOAT_ARG_OFFSET + 0x38
 
-        // Space for return buffer data (0x40 bytes)
+        // Space for return buffer data (0x10 bytes)
 
         // Save argument registers
         st.d  $a0, $sp, ARGUMENT_REGISTERS_OFFSET

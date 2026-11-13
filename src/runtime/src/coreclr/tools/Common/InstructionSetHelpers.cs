@@ -38,6 +38,11 @@ namespace System.CommandLine
                     instructionSetSupportBuilder.AddSupportedInstructionSet("neon");
                 }
             }
+            else if (targetArchitecture == TargetArchitecture.LoongArch64)
+            {
+                instructionSetSupportBuilder.AddSupportedInstructionSet("base");
+                instructionSetSupportBuilder.AddSupportedInstructionSet("lsx");
+            }
 
             // Whether to allow optimistically expanding the instruction sets beyond what was specified.
             // We seed this from optimizingForSize - if we're size-optimizing, we don't want to unnecessarily
@@ -239,6 +244,11 @@ namespace System.CommandLine
                 optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("lse");
                 optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("dotprod");
                 optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("rdma");
+            }
+            else if (allowOptimistic && targetArchitecture == TargetArchitecture.LoongArch64)
+            {
+                optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("lam_bh");
+                optimisticInstructionSetSupportBuilder.AddSupportedInstructionSet("lam_cas");
             }
 
             // Vector<T> can always be part of the optimistic set, we only want to optionally exclude it from the supported set

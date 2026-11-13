@@ -9893,6 +9893,82 @@ GenTree* Compiler::fgOptimizeHWIntrinsic(GenTreeHWIntrinsic* node)
                                                                  op1SimdBaseType, op1SimdSize, op1IsScalar,
                                                                  reverseCond);
 
+#if defined(TARGET_LOONGARCH64)
+                //for LA ~(v1 cmp v2) to v1 cmp* v2,
+                //if v1 or v2 is NaN, the (v1 cmp v2) and (v1 cmp* v2) result is the same,
+                //so it is transformed into an instruction containing unordered for comparison
+                if (varTypeIsFloating(simdBaseType))
+                {
+                    switch (newId)
+                    {
+                        case NI_LSX_CompareEqual:
+                        {
+                            newId = NI_LSX_CompareEqualUnordered;
+                            break;
+                        }
+                        case NI_LASX_CompareEqual:
+                        {
+                            newId = NI_LASX_CompareEqualUnordered;
+                            break;
+                        }
+                        case NI_LSX_CompareNotEqual:
+                        {
+                            newId = NI_LSX_CompareNotEqualUnordered;
+                            break;
+                        }
+                        case NI_LASX_CompareNotEqual:
+                        {
+                            newId = NI_LASX_CompareNotEqualUnordered;
+                            break;
+                        }
+                        case NI_LSX_CompareGreaterThan:
+                        {
+                            newId = NI_LSX_CompareGreaterThanUnordered;
+                            break;
+                        }
+                        case NI_LASX_CompareGreaterThan:
+                        {
+                            newId = NI_LASX_CompareGreaterThanUnordered;
+                            break;
+                        }
+                        case NI_LSX_CompareGreaterThanOrEqual:
+                        {
+                            newId = NI_LSX_CompareGreaterThanOrEqualUnordered;
+                            break;
+                        }
+                        case NI_LASX_CompareGreaterThanOrEqual:
+                        {
+                            newId = NI_LASX_CompareGreaterThanOrEqualUnordered;
+                            break;
+                        }
+                        case NI_LSX_CompareLessThan:
+                        {
+                            newId = NI_LSX_CompareLessThanUnordered;
+                            break;
+                        }
+                        case NI_LASX_CompareLessThan:
+                        {
+                            newId = NI_LASX_CompareLessThanUnordered;
+                            break;
+                        }
+                        case NI_LSX_CompareLessThanOrEqual:
+                        {
+                            newId = NI_LSX_CompareLessThanOrEqualUnordered;
+                            break;
+                        }
+                        case NI_LASX_CompareLessThanOrEqual:
+                        {
+                            newId = NI_LASX_CompareLessThanOrEqualUnordered;
+                            break;
+                        }
+
+                        default:
+                        {
+                            break;
+                        }
+                    }
+                }
+#endif
                 if (newId != NI_Illegal)
                 {
                     op1Intrin->ResetHWIntrinsicId(newId, cmpOp1, cmpOp2);
@@ -9905,8 +9981,10 @@ GenTree* Compiler::fgOptimizeHWIntrinsic(GenTreeHWIntrinsic* node)
                         assert(varTypeIsMask(lookupType));
 
                         op1Intrin->gtType = lookupType;
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
                         op1Intrin = gtNewSimdCvtMaskToVectorNode(retType, op1Intrin, op1SimdBaseJitType, op1SimdSize)
                                         ->AsHWIntrinsic();
+#endif
                     }
                     else if (cvtIntrin != nullptr)
                     {
@@ -11421,6 +11499,7 @@ GenTree* Compiler::fgMorphHWIntrinsicRequired(GenTreeHWIntrinsic* tree)
                 {
                     GenTree* newNode = nullptr;
 
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
                     if (op1Intrinsic->OperIsConvertVectorToMask())
                     {
 #if defined(TARGET_XARCH)
@@ -11443,6 +11522,7 @@ GenTree* Compiler::fgMorphHWIntrinsicRequired(GenTreeHWIntrinsic* tree)
 #endif // TARGET_XARCH
                     }
                     else
+#endif //FEATURE_MASKED_HW_INTRINSICS
                     {
                         newNode = gtNewSimdUnOpNode(GT_NOT, op1Type, op1, simdBaseJitType, simdSize);
 
@@ -11460,6 +11540,7 @@ GenTree* Compiler::fgMorphHWIntrinsicRequired(GenTreeHWIntrinsic* tree)
                         {
                             newNode = fgMorphHWIntrinsicRequired(newNode->AsHWIntrinsic());
 
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
                             if (retType == TYP_MASK)
                             {
                                 newNode = gtNewSimdCvtVectorToMaskNode(retType, newNode, simdBaseJitType, simdSize);
@@ -11468,6 +11549,7 @@ GenTree* Compiler::fgMorphHWIntrinsicRequired(GenTreeHWIntrinsic* tree)
                             {
                                 newNode = gtNewSimdCvtMaskToVectorNode(retType, newNode, simdBaseJitType, simdSize);
                             }
+#endif //FEATURE_MASKED_HW_INTRINSICS
                         }
 
                         return fgMorphHWIntrinsicRequired(newNode->AsHWIntrinsic());
@@ -11498,6 +11580,7 @@ GenTree* Compiler::fgMorphHWIntrinsicRequired(GenTreeHWIntrinsic* tree)
             {
                 tree->ResetHWIntrinsicId(newId, op2, op1);
 
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
                 if (lookupType != retType)
                 {
                     assert(varTypeIsSIMD(retType));
@@ -11507,6 +11590,7 @@ GenTree* Compiler::fgMorphHWIntrinsicRequired(GenTreeHWIntrinsic* tree)
                     tree = gtNewSimdCvtMaskToVectorNode(retType, tree, simdBaseJitType, simdSize)->AsHWIntrinsic();
                     return fgMorphHWIntrinsicRequired(tree);
                 }
+#endif // FEATURE_MASKED_HW_INTRINSICS
             }
         }
     }

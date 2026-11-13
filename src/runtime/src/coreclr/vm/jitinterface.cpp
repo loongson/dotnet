@@ -11917,6 +11917,92 @@ void CEEJitInfo::recordRelocation(void * location,
         }
         break;
 
+    case IMAGE_REL_LOONGARCH64_BRANCH26:   // 26 bit offset << 2 & sign ext, for B and BL
+        {
+            _ASSERTE(addlDelta == 0);
+
+            PCODE branchTarget  = (PCODE) target;
+            _ASSERTE((branchTarget & 0x3) == 0);   // the low two bits must be zero
+
+            PCODE fixupLocation = (PCODE) location;
+            PCODE fixupLocationRW = (PCODE) locationRW;
+            _ASSERTE((fixupLocation & 0x3) == 0);  // the low two bits must be zero
+
+            delta = (INT64)(branchTarget - fixupLocation);
+            _ASSERTE((delta & 0x3) == 0);          // the low two bits must be zero
+
+            UINT32 branchInstr = *((UINT32*) fixupLocationRW);
+            branchInstr &= 0xFC000000;  // keep bits 31-26
+            _ASSERTE((branchInstr & 0xFFFFFFFF) == 0x50000000 || (branchInstr & 0xFFFFFFFF) == 0x54000000);  // Must be B or BL
+
+            //
+            // Do we need to insert a jump stub to make the source reach the target?
+            //
+            //
+            if (!FitsInRel28(delta))
+            {
+                TADDR jumpStubAddr;
+
+                if (m_fJumpStubOverflow)
+                {
+                    // Do not attempt to allocate more jump stubs. We are going to throw away the code and retry anyway.
+                    jumpStubAddr = 0;
+                }
+                else
+                {
+
+                    // Use jump stub.
+                    //
+                    TADDR baseAddr = (TADDR)fixupLocation;
+                    TADDR loAddr   = baseAddr - 0x08000000;   // -2^27
+                    TADDR hiAddr   = baseAddr + 0x07FFFFFF;   // +2^27-1
+
+                    // Check for the wrap around cases
+                    if (loAddr > baseAddr)
+                        loAddr = UINT64_MIN; // overflow
+                    if (hiAddr < baseAddr)
+                        hiAddr = UINT64_MAX; // overflow
+
+                    jumpStubAddr = ExecutionManager::jumpStub(m_pMethodBeingCompiled,
+                                                              (PCODE)  target,
+                                                              (BYTE *) loAddr,
+                                                              (BYTE *) hiAddr,
+                                                              NULL,
+                                                              false);
+                }
+
+                // Keep track of conservative estimate of how much memory may be needed by jump stubs. We will use it to reserve extra memory
+                // on retry to increase chances that the retry succeeds.
+                m_reserveForJumpStubs = max((size_t)0x400, m_reserveForJumpStubs + 2*BACK_TO_BACK_JUMP_ALLOCATE_SIZE);
+
+                if (jumpStubAddr == 0)
+                {
+                    // This forces the JIT to retry the method, which allows us to reserve more space for jump stubs and have a higher chance that
+                    // we will find space for them.
+                    m_fJumpStubOverflow = TRUE;
+                    break;
+                }
+
+                delta = (INT64)(jumpStubAddr - fixupLocation);
+
+                if (!FitsInRel28(delta))
+                {
+                    _ASSERTE(!"jump stub was not in expected range");
+                    EEPOLICY_HANDLE_FATAL_ERROR(COR_E_EXECUTIONENGINE);
+                }
+
+                LOG((LF_JIT, LL_INFO100000, "Using JumpStub at" FMT_ADDR "that jumps to" FMT_ADDR "\n",
+                     DBG_ADDR(jumpStubAddr), DBG_ADDR(target)));
+            }
+
+                    LOG((LF_JIT, LL_INFO100000, "Encoded a BRANCH26 at" FMT_ADDR "to" FMT_ADDR ",  delta is 0x%04x\n",
+                             DBG_ADDR(fixupLocation), DBG_ADDR(target), (UINT32)delta));
+
+            _ASSERTE(FitsInRel28(delta));
+
+            PutLoongArch64Rel28((UINT32*) fixupLocationRW, (INT32)delta);
+        }
+        break;
 #endif // TARGET_LOONGARCH64
 
 
@@ -13164,7 +13250,7 @@ static TADDR UnsafeJitFunctionWorker(
 
 class JumpStubOverflowCheck final
 {
-#if defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#if defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
 #if defined(TARGET_AMD64)
     static BOOL g_fAllowRel32;
 #endif // TARGET_AMD64
@@ -13172,14 +13258,14 @@ class JumpStubOverflowCheck final
     BOOL _fForceJumpStubOverflow;
     BOOL _fAllowRel32;
     size_t _reserveForJumpStubs;
-#endif // defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#endif // defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
 
 public:
     JumpStubOverflowCheck()
     {
         STANDARD_VM_CONTRACT;
 
-#if defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#if defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
         _fForceJumpStubOverflow = FALSE;
 #ifdef _DEBUG
         // Always exercise the overflow codepath with force relocs
@@ -13193,7 +13279,7 @@ public:
 #endif // TARGET_AMD64
 
         _reserveForJumpStubs = 0;
-#endif // defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#endif // defined(TARGET_AMD64) || defined(TARGET_ARM64 || defined(TARGET_LOONGARCH64))
     }
 
     ~JumpStubOverflowCheck() = default;
@@ -13202,7 +13288,7 @@ public:
     {
         STANDARD_VM_CONTRACT;
 
-#if defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#if defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
 #if defined(TARGET_AMD64)
         if (_fForceJumpStubOverflow)
             jitInfo.SetJumpStubOverflow(_fAllowRel32);
@@ -13212,14 +13298,14 @@ public:
             jitInfo.SetJumpStubOverflow(_fForceJumpStubOverflow);
 #endif
         jitInfo.SetReserveForJumpStubs(_reserveForJumpStubs);
-#endif // defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#endif // defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
     }
 
     bool Detected(CEEJitInfo& jitInfo, EEJitManager* jitMgr)
     {
         STANDARD_VM_CONTRACT;
 
-#if defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#if defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
         if (jitInfo.IsJumpStubOverflow())
         {
             // Try again with fAllowRel32 == FALSE.
@@ -13230,14 +13316,14 @@ public:
 
             _fAllowRel32 = FALSE;
 #endif // TARGET_AMD64
-#if defined(TARGET_ARM64)
+#if defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
             _fForceJumpStubOverflow = FALSE;
-#endif // TARGET_ARM64
+#endif // TARGET_ARM64 || TARGET_LOONGARCH64
 
             _reserveForJumpStubs = jitInfo.GetReserveForJumpStubs();
             return true;
         }
-#endif // defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#endif // defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
 
         // No overflow detected
         return false;

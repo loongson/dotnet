@@ -2223,8 +2223,26 @@ instruction CodeGenInterface::ins_Load(var_types srcType, bool aligned /*=false*
     assert(!varTypeIsSIMD(srcType));
     return INS_vldr;
 #elif defined(TARGET_LOONGARCH64)
-    assert(!varTypeIsSIMD(srcType));
-
+#ifdef FEATURE_SIMD
+    if (varTypeIsSIMD(srcType))
+    {
+        if (srcType == TYP_SIMD32)
+        {
+            assert(compiler->compOpportunisticallyDependsOn(InstructionSet_LASX));
+            return INS_xvld;
+        }
+        else if (srcType == TYP_SIMD16 || srcType == TYP_SIMD12)
+        {
+            return INS_vld;
+        }
+        else
+        {
+            assert(srcType == TYP_SIMD8);
+            return INS_fld_d;
+        }
+    }
+    else
+#endif // FEATURE_SIMD
     if (srcType == TYP_DOUBLE)
     {
         return INS_fld_d;
@@ -2300,16 +2318,14 @@ instruction CodeGen::ins_Copy(var_types dstType)
     assert(!varTypeIsSIMD(dstType));
     return INS_vmov;
 #elif defined(TARGET_LOONGARCH64)
-    assert(!varTypeIsSIMD(dstType));
-
-    if (dstType == TYP_DOUBLE)
+    if (varTypeIsFloating(dstType))
     {
-        return INS_fmov_d;
+        return dstType == TYP_FLOAT ? INS_fmov_s : INS_fmov_d;
     }
     else
     {
-        assert(dstType == TYP_FLOAT);
-        return INS_fmov_s;
+        assert(varTypeIsSIMD(dstType));
+        return INS_mov;;
     }
 #elif defined(TARGET_RISCV64)
     assert(!varTypeIsSIMD(dstType));
@@ -2547,8 +2563,26 @@ instruction CodeGenInterface::ins_Store(var_types dstType, bool aligned /*=false
     assert(!varTypeIsSIMD(dstType));
     return INS_vstr;
 #elif defined(TARGET_LOONGARCH64)
-    assert(!varTypeIsSIMD(dstType));
-
+#ifdef FEATURE_SIMD
+    if (varTypeIsSIMD(dstType))
+    {
+        if (dstType == TYP_SIMD32)
+        {
+            assert(compiler->compOpportunisticallyDependsOn(InstructionSet_LASX));
+            return INS_xvst;
+        }
+        else if (dstType == TYP_SIMD16 || dstType == TYP_SIMD12)
+        {
+            return INS_vst;
+        }
+        else
+        {
+            assert(dstType == TYP_SIMD8);
+            return aligned ? INS_fstx_d : INS_fst_d;
+        }
+    }
+    else
+#endif
     if (dstType == TYP_DOUBLE)
     {
         return aligned ? INS_fstx_d : INS_fst_d;

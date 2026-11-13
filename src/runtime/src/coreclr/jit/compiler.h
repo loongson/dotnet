@@ -3443,7 +3443,7 @@ public:
                                               CORINFO_SIG_INFO*    sig,
                                               CorInfoType          simdBaseJitType);
 
-#ifdef TARGET_ARM64
+#if defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
     GenTreeFieldList* gtConvertTableOpToFieldList(GenTree* op, unsigned fieldCount);
     GenTreeFieldList* gtConvertParamOpToFieldList(GenTree* op, unsigned fieldCount, CORINFO_CLASS_HANDLE clsHnd);
 #endif
@@ -3706,7 +3706,9 @@ public:
 
 #if defined(FEATURE_HW_INTRINSICS)
     GenTree* gtFoldExprHWIntrinsic(GenTreeHWIntrinsic* tree);
+#if defined(FEATURE_MASKED_HW_INTRINSICS)
     GenTreeMskCon* gtFoldExprConvertVecCnsToMask(GenTreeHWIntrinsic* tree, GenTreeVecCon* vecCon);
+#endif // FEATURE_MASKED_HW_INTRINSICS
 #endif // FEATURE_HW_INTRINSICS
 
     // Options to control behavior of gtTryRemoveBoxUpstreamEffects
@@ -8200,6 +8202,15 @@ public:
         // For SIMD types longer than 8 bytes Caller is responsible for saving and restoring Upper bytes.
         return ((type == TYP_SIMD16) || (type == TYP_SIMD12));
     }
+#elif defined(TARGET_LOONGARCH64)
+//should confirm
+    static bool varTypeNeedsPartialCalleeSave(var_types type)
+    {
+        assert(type != TYP_STRUCT);
+        // LOONGARCH64 ABI FP Callee save registers only require Callee to save lower 8 Bytes
+        // For SIMD types longer than 8 bytes Caller is responsible for saving and restoring Upper bytes.
+        return ((type == TYP_SIMD16) || (type == TYP_SIMD12) || (type == TYP_SIMD32));
+    }
 #else // !defined(TARGET_AMD64) && !defined(TARGET_ARM64)
 #error("Unknown target architecture for FEATURE_PARTIAL_SIMD_CALLEE_SAVE")
 #endif // !defined(TARGET_AMD64) && !defined(TARGET_ARM64)
@@ -9144,6 +9155,23 @@ public:
 
             return FP_REGSIZE_BYTES;
         }
+#elif defined(TARGET_LOONGARCH64)
+        if (compExactlyDependsOn(InstructionSet_VectorT256))
+        {
+            assert(!compIsaSupportedDebugOnly(InstructionSet_VectorT128));
+            return LASX_REGSIZE_BYTES;
+        }
+        else if (compExactlyDependsOn(InstructionSet_VectorT128))
+        {
+            return LSX_REGSIZE_BYTES;
+        }
+        else
+        {
+            // TODO: We should be returning 0 here, but there are a number of
+            // places that don't quite get handled correctly in that scenario
+
+            return LSX_REGSIZE_BYTES;
+        }
 #else
         assert(!"getVectorTByteLength() unimplemented on target arch");
         unreached();
@@ -9176,6 +9204,19 @@ public:
         }
 #elif defined(TARGET_ARM64)
         return FP_REGSIZE_BYTES;
+#elif defined(FEATURE_HW_INTRINSICS) && defined(TARGET_LOONGARCH64)
+        if (compOpportunisticallyDependsOn(InstructionSet_LASX))
+        {
+            return LASX_REGSIZE_BYTES;
+        }
+        else if (compOpportunisticallyDependsOn(InstructionSet_LSX))
+        {
+            return LSX_REGSIZE_BYTES;
+        }
+        else
+        {
+            return FP_REGSIZE_BYTES;
+        }
 #else
         assert(!"getMaxVectorByteLength() unimplemented on target arch");
         unreached();
@@ -9275,6 +9316,22 @@ public:
 #elif defined(TARGET_ARM64)
         assert(getMaxVectorByteLength() == FP_REGSIZE_BYTES);
         return (size >= FP_REGSIZE_BYTES) ? FP_REGSIZE_BYTES : 0;
+#elif defined(TARGET_LOONGARCH64)
+        uint32_t maxSize = getMaxVectorByteLength();
+        assert(maxSize <= LASX_REGSIZE_BYTES);
+
+        if ((size >= LASX_REGSIZE_BYTES) && (maxSize >= LASX_REGSIZE_BYTES))
+        {
+            return LASX_REGSIZE_BYTES;
+        }
+
+        if ((size >= LSX_REGSIZE_BYTES) && (maxSize >= LSX_REGSIZE_BYTES))
+        {
+            return LSX_REGSIZE_BYTES;
+        }
+
+        // Return 0 if size or maxSize is even less than LSX
+        return 0;
 #else
         assert(!"roundDownSIMDSize() unimplemented on target arch");
         unreached();
@@ -9312,6 +9369,12 @@ public:
             simdType = TYP_SIMD64;
         }
 #endif // TARGET_XARCH
+#if defined(TARGET_LOONGARCH64)
+        else if (size == 32)
+        {
+            simdType = TYP_SIMD32;
+        }
+#endif
         else
         {
             noway_assert(!"Unexpected size for SIMD type");
@@ -9591,7 +9654,7 @@ private:
     // support/nonsupport for an instruction set
     bool compIsaSupportedDebugOnly(CORINFO_InstructionSet isa) const
     {
-#if defined(TARGET_XARCH) || defined(TARGET_ARM64)
+#if defined(TARGET_XARCH) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
         return opts.compSupportsISA.HasInstructionSet(isa);
 #else
         return false;
@@ -9606,7 +9669,7 @@ private:
     // on which the function is executed (except for CoreLib, where there are special rules)
     bool compExactlyDependsOn(CORINFO_InstructionSet isa) const
     {
-#if defined(TARGET_XARCH) || defined(TARGET_ARM64) || defined(TARGET_RISCV64)
+#if defined(TARGET_XARCH) || defined(TARGET_ARM64) || defined(TARGET_RISCV64) || defined(TARGET_LOONGARCH64)
         if ((opts.compSupportsISAReported.HasInstructionSet(isa)) == false)
         {
             if (notifyInstructionSetUsage(isa, (opts.compSupportsISA.HasInstructionSet(isa))))
@@ -10607,7 +10670,7 @@ public:
         // Number of class profile probes in this method
         unsigned compHandleHistogramProbeCount = 0;
 
-#ifdef TARGET_ARM64
+#if defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
         bool compNeedsConsecutiveRegisters = false;
 #endif
 

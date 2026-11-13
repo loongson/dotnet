@@ -744,7 +744,7 @@ public:
     }
 #endif
 
-#if defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#if defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
     void SetJumpStubOverflow(BOOL fJumpStubOverflow)
     {
         LIMITED_METHOD_CONTRACT;
@@ -796,7 +796,7 @@ public:
         LIMITED_METHOD_CONTRACT;
         return 0;
     }
-#endif // defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#endif // defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
 
 #ifdef FEATURE_ON_STACK_REPLACEMENT
     // Called by the runtime to supply patchpoint information to the jit.
@@ -825,7 +825,7 @@ public:
 #ifdef TARGET_AMD64
         , m_fAllowRel32(FALSE)
 #endif
-#if defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#if defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
         , m_fJumpStubOverflow(FALSE),
           m_reserveForJumpStubs(0)
 #endif
@@ -920,7 +920,7 @@ protected :
 #ifdef TARGET_AMD64
     BOOL                    m_fAllowRel32;      // Use 32-bit PC relative address modes
 #endif
-#if defined(TARGET_AMD64) || defined(TARGET_ARM64)
+#if defined(TARGET_AMD64) || defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
     BOOL                    m_fJumpStubOverflow;   // Overflow while trying to alocate jump stub slot within PC relative branch region
                                                    // The code will need to be regenerated (with m_fRel32Allowed == FALSE for AMD64).
     size_t                  m_reserveForJumpStubs; // Space to reserve for jump stubs when allocating code

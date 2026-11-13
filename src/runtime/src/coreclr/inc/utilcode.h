@@ -3339,6 +3339,11 @@ INT64 GetLoongArch64PC12(UINT32 * pCode);
 INT64 GetLoongArch64JIR(UINT32 * pCode);
 
 //*****************************************************************************
+//  Extract the PC-Relative offset from a b or bl instruction
+//*****************************************************************************
+INT32 GetLoongArch64Rel28(UINT32 * pCode);
+
+//*****************************************************************************
 //  Deposit the PC-Relative page address and page offset into pcalau12i+add/ld
 //*****************************************************************************
 void PutLoongArch64PC12(UINT32 * pCode, INT64 imm);
@@ -3347,6 +3352,11 @@ void PutLoongArch64PC12(UINT32 * pCode, INT64 imm);
 //  Deposit the jump offset into pcaddu18i+jirl instructions
 //*****************************************************************************
 void PutLoongArch64JIR(UINT32 * pCode, INT64 imm);
+
+//*****************************************************************************
+//  Deposit the PC-Relative offset 'imm28' into a b or bl instruction
+//*****************************************************************************
+void PutLoongArch64Rel28(UINT32 * pCode, INT32 imm28);
 
 //*****************************************************************************
 //  Extract the PC-Relative offset from auipc + I-type adder (addi/ld/jalr)

@@ -478,6 +478,88 @@ void PutArm32MovtConstant(UINT32* p, unsigned con)
 }
 
 //*****************************************************************************
+//  Extract the PC-Relative page address and page offset from pcalau12i+add/ld
+//*****************************************************************************
+INT64 GetLoongArch64PC12(UINT32 * pCode)
+{
+    UINT32 pcInstr = *pCode;
+
+    // first get the high 20 bits,
+    INT64 imm = (INT64)(INT32)(((pcInstr >> 5) & 0xFFFFF) << 12);
+
+    // then get the low 12 bits,
+    pcInstr = *(pCode + 1);
+    imm |= (INT64)((pcInstr >> 10) & 0xFFF);
+
+    return imm;
+}
+
+//*****************************************************************************
+//  Extract the jump offset into b/bl instructions
+//*****************************************************************************
+INT32 GetLoongArch64Rel28(UINT32 * pCode)
+{
+    UINT32 branchInstr = *pCode;
+
+    // first get the high 10 bits,
+    INT32 imm28 = (INT32)((branchInstr & 0x000003FF) << 18);
+
+    // then get the low 16 bits
+    imm28 |= ((branchInstr >> 10) & 0xFFFF) << 2;
+
+    return imm28;
+}
+
+//*****************************************************************************
+//  Deposit the PC-Relative page address and page offset into pcalau12i+add/ld
+//*****************************************************************************
+void PutLoongArch64PC12(UINT32 * pCode, INT64 imm)
+{
+    // Verify that we got a valid offset
+    _ASSERTE((INT32)imm == imm);
+
+    UINT32 pcInstr = *pCode;
+
+    _ASSERTE((pcInstr & 0xFE000000) == 0x1a000000); // Must be pcalau12i
+
+    // Assemble the pc-relative high 20 bits of 'imm' into the pcalau12i instruction
+    pcInstr |= (UINT32)((imm >> 7) & 0x1FFFFE0);
+
+    *pCode = pcInstr; // write the assembled instruction
+
+    pcInstr = *(pCode + 1);
+
+    // Assemble the pc-relative low 12 bits of 'imm' into the addid or ld instruction
+    pcInstr |= (UINT32)((imm & 0xFFF) << 10);
+
+    *(pCode + 1) = pcInstr; // write the assembled instruction
+
+    _ASSERTE(GetLoongArch64PC12(pCode) == imm);
+}
+
+//*****************************************************************************
+//  Deposit the jump offset into b/bl instructions
+//*****************************************************************************
+void PutLoongArch64Rel28(UINT32 * pCode, INT32 imm28)
+{
+    // Verify that we got a valid offset
+    _ASSERTE((imm28 & 0x3) == 0);    // the low two bits must be zero
+
+    UINT32 branchInstr = *pCode;
+
+    branchInstr &= 0xFC000000;       // keep bits 31-26
+
+    // Assemble the pc-relative delta high 10 bit of 'imm28' into the branch instruction
+    branchInstr |= ((imm28 >> 18) & 0x000003FF);
+    // Assemble the pc-relative delta low 16 bit of 'imm28' into the branch instruction
+    branchInstr |= ((imm28 << 8) & 0x03fffc00);
+
+    *pCode = branchInstr;          // write the assembled instruction
+
+    _ASSERTE(GetLoongArch64Rel28(pCode) == imm28);
+}
+
+//*****************************************************************************
 //  Extract the PC-Relative offset from auipc + I-type adder (addi/ld/jalr)
 //*****************************************************************************
 INT64 GetRiscV64AuipcItype(UINT32 * pCode)

@@ -3266,6 +3266,13 @@ GenTree* Compiler::impIntrinsic(CORINFO_CLASS_HANDLE    clsHnd,
             assert((LAST_NI_Vector128 + 1) == FIRST_NI_AdvSimd);
 
             if (ni < LAST_NI_Vector128)
+#elif defined(TARGET_LOONGARCH64)
+            // We can't guarantee that all overloads for the xplat intrinsics can be
+            // handled by the AltJit, so limit only the platform specific intrinsics
+            assert((LAST_NI_Vector256 + 1) == FIRST_NI_LSX);
+
+            if (ni < LAST_NI_Vector256)
+//should confirm
 #else
 #error Unsupported platform
 #endif
@@ -4164,7 +4171,7 @@ GenTree* Compiler::impIntrinsic(CORINFO_CLASS_HANDLE    clsHnd,
                 break;
             }
 
-#if defined(TARGET_ARM64) || defined(TARGET_RISCV64) || defined(TARGET_XARCH)
+#if defined(TARGET_ARM64) || defined(TARGET_RISCV64) || defined(TARGET_XARCH) || defined(TARGET_LOONGARCH64)
             case NI_System_Threading_Interlocked_Or:
             case NI_System_Threading_Interlocked_And:
             {
@@ -4186,9 +4193,9 @@ GenTree* Compiler::impIntrinsic(CORINFO_CLASS_HANDLE    clsHnd,
                 }
                 break;
             }
-#endif // defined(TARGET_ARM64) || defined(TARGET_RISCV64)
+#endif // defined(TARGET_ARM64) || defined(TARGET_RISCV64) || defined(TARGET_XARCH) || defined(TARGET_LOONGARCH64)
 
-#if defined(TARGET_XARCH) || defined(TARGET_ARM64) || defined(TARGET_RISCV64)
+#if defined(TARGET_XARCH) || defined(TARGET_ARM64) || defined(TARGET_RISCV64) || defined(TARGET_LOONGARCH64)
             // TODO-ARM-CQ: reenable treating InterlockedCmpXchg32 operation as intrinsic
             case NI_System_Threading_Interlocked_CompareExchange:
             {
@@ -4199,10 +4206,29 @@ GenTree* Compiler::impIntrinsic(CORINFO_CLASS_HANDLE    clsHnd,
                     break;
                 }
 #if !defined(TARGET_XARCH) && !defined(TARGET_ARM64)
+#if defined(TARGET_LOONGARCH64)
+                if (!compOpportunisticallyDependsOn(InstructionSet_LAM_CAS))
+                {
+                    if (!opts.compSupportsISA.HasInstructionSet(InstructionSet_LAM_CAS) && varTypeIsSmall(retType))
+                    {
+                        if (mustExpand)
+                            return impUnsupportedNamedIntrinsic(CORINFO_HELP_THROW_PLATFORM_NOT_SUPPORTED, method, sig,
+                                                                mustExpand);
+                        break;
+                    }
+                    else if (IsTargetAbi(CORINFO_NATIVEAOT_ABI) &&
+                             opts.compSupportsISA.HasInstructionSet(InstructionSet_LAM_CAS))
+                    {
+                        if (!mustExpand)
+                            break;
+                    }
+                }
+#else
                 else if (genTypeSize(retType) < 4)
                 {
                     break;
                 }
+#endif // defined(TARGET_LOONGARCH64)
 #endif // !defined(TARGET_XARCH) && !defined(TARGET_ARM64)
 
                 if ((retType == TYP_REF) &&
@@ -4243,7 +4269,26 @@ GenTree* Compiler::impIntrinsic(CORINFO_CLASS_HANDLE    clsHnd,
 #if !defined(TARGET_XARCH) && !defined(TARGET_ARM64)
                 else if (genTypeSize(retType) < 4)
                 {
+#if defined(TARGET_LOONGARCH64)
+                    if (!compOpportunisticallyDependsOn(InstructionSet_LAM_BH))
+                    {
+                        if (!opts.compSupportsISA.HasInstructionSet(InstructionSet_LAM_BH))
+                        {
+                            if (mustExpand)
+                                return impUnsupportedNamedIntrinsic(CORINFO_HELP_THROW_PLATFORM_NOT_SUPPORTED, method,
+                                                                    sig, mustExpand);
+                            break;
+                        }
+                        else if (IsTargetAbi(CORINFO_NATIVEAOT_ABI) &&
+                                 opts.compSupportsISA.HasInstructionSet(InstructionSet_LAM_BH))
+                        {
+                            if (!mustExpand)
+                                break;
+                        }
+                    }
+#else
                     break;
+#endif
                 }
 #endif // !defined(TARGET_XARCH) && !defined(TARGET_ARM64)
 
@@ -4275,7 +4320,7 @@ GenTree* Compiler::impIntrinsic(CORINFO_CLASS_HANDLE    clsHnd,
                                           callType, op1, op2);
                 break;
             }
-#endif // defined(TARGET_XARCH) || defined(TARGET_ARM64) || defined(TARGET_RISCV64)
+#endif // defined(TARGET_XARCH) || defined(TARGET_ARM64) || defined(TARGET_RISCV64) || defined(TARGET_LOONGARCH64)
 
             case NI_System_Threading_Interlocked_MemoryBarrier:
             {
@@ -4958,6 +5003,23 @@ GenTree* Compiler::impIntrinsic(CORINFO_CLASS_HANDLE    clsHnd,
             else if (!isNative || !BlockNonDeterministicIntrinsics(mustExpand))
             {
 #if defined(FEATURE_HW_INTRINSICS)
+#ifdef TARGET_LOONGARCH64
+                if (compOpportunisticallyDependsOn(InstructionSet_LSX))
+                {
+                    GenTree* op2 = impImplicitR4orR8Cast(impPopStack().val, callType);
+                    GenTree* op1 = impImplicitR4orR8Cast(impPopStack().val, callType);
+
+                    if (isNative)
+                    {
+                        assert(!isMagnitude && !isNumber);
+                        retNode = gtNewSimdMinMaxNativeNode(callType, op1, op2, callJitType, 0, isMax);
+                    }
+                    else
+                    {
+                        retNode = gtNewSimdMinMaxNode(callType, op1, op2, callJitType, 0, isMax, isMagnitude, isNumber);
+                    }
+                }
+#else
                 GenTree* op2 = impImplicitR4orR8Cast(impPopStack().val, callType);
                 GenTree* op1 = impImplicitR4orR8Cast(impPopStack().val, callType);
 
@@ -4970,6 +5032,7 @@ GenTree* Compiler::impIntrinsic(CORINFO_CLASS_HANDLE    clsHnd,
                 {
                     retNode = gtNewSimdMinMaxNode(callType, op1, op2, callJitType, 0, isMax, isMagnitude, isNumber);
                 }
+#endif
 #endif // FEATURE_HW_INTRINSICS
 
 #ifdef TARGET_RISCV64
@@ -5877,6 +5940,19 @@ GenTree* Compiler::impPrimitiveNamedIntrinsic(NamedIntrinsic        intrinsic,
                 // We use the simdBaseJitType to bring the type of the second argument to codegen
                 result->AsHWIntrinsic()->SetSimdBaseJitType(baseJitType);
             }
+#elif defined(TARGET_LOONGARCH64)
+            if (compOpportunisticallyDependsOn(InstructionSet_LoongArch64Base))
+            {
+                GenTree* op2 = impPopStack().val;
+                GenTree* op1 = impPopStack().val;
+
+                hwintrinsic = NI_LoongArch64Base_CyclicRedundancyCheckCastagnoli;
+                result      = gtNewScalarHWIntrinsicNode(TYP_INT, op1, op2, hwintrinsic);
+                baseType    = TYP_INT;
+
+                // We use the simdBaseJitType to bring the type of the second argument to codegen
+                result->AsHWIntrinsic()->SetSimdBaseJitType(baseJitType);
+            }
 #endif // TARGET_*
 #endif // FEATURE_HW_INTRINSICS
 
@@ -5983,6 +6059,16 @@ GenTree* Compiler::impPrimitiveNamedIntrinsic(NamedIntrinsic        intrinsic,
             hwintrinsic = varTypeIsLong(baseType) ? NI_ArmBase_Arm64_LeadingZeroCount : NI_ArmBase_LeadingZeroCount;
             result      = gtNewScalarHWIntrinsicNode(TYP_INT, op1, hwintrinsic);
             baseType    = TYP_INT;
+#elif defined(TARGET_LOONGARCH64)
+            if (compOpportunisticallyDependsOn(InstructionSet_LoongArch64Base))
+            {
+                // Pop the value from the stack
+                impPopStack();
+
+                hwintrinsic = NI_LoongArch64Base_LeadingZeroCount;
+                result      = gtNewScalarHWIntrinsicNode(TYP_INT, op1, hwintrinsic);
+                baseType    = TYP_INT;
+            }
 #endif // TARGET_*
 #endif // FEATURE_HW_INTRINSICS
 
@@ -6325,6 +6411,16 @@ GenTree* Compiler::impPrimitiveNamedIntrinsic(NamedIntrinsic        intrinsic,
             hwintrinsic = varTypeIsLong(baseType) ? NI_ArmBase_Arm64_LeadingZeroCount : NI_ArmBase_LeadingZeroCount;
             result      = gtNewScalarHWIntrinsicNode(TYP_INT, op1, hwintrinsic);
             baseType    = TYP_INT;
+#elif defined(TARGET_LOONGARCH64)
+            if (compOpportunisticallyDependsOn(InstructionSet_LoongArch64Base))
+            {
+                // Pop the value from the stack
+                impPopStack();
+
+                hwintrinsic = NI_LoongArch64Base_TrailingZeroCount;
+                result      = gtNewScalarHWIntrinsicNode(TYP_INT, op1, hwintrinsic);
+                baseType    = TYP_INT;
+            }
 #endif // TARGET_*
 #endif // FEATURE_HW_INTRINSICS
 
@@ -8415,8 +8511,6 @@ bool Compiler::IsTargetIntrinsic(NamedIntrinsic intrinsicName)
     switch (intrinsicName)
     {
         case NI_System_Math_Abs:
-        case NI_System_Math_Sqrt:
-        case NI_System_Math_ReciprocalSqrtEstimate:
         {
             // TODO-LoongArch64: support these standard intrinsics
             return false;
@@ -8424,6 +8518,8 @@ bool Compiler::IsTargetIntrinsic(NamedIntrinsic intrinsicName)
 
         case NI_System_Math_MultiplyAddEstimate:
         case NI_System_Math_ReciprocalEstimate:
+        case NI_System_Math_ReciprocalSqrtEstimate:
+        case NI_System_Math_Sqrt:
             return true;
 
         default:
@@ -9895,7 +9991,22 @@ GenTree* Compiler::impEstimateIntrinsic(CORINFO_METHOD_HANDLE method,
 
                 swapOp1AndOp3 = true;
             }
-#endif // TARGET_ARM64
+#elif defined(TARGET_LOONGARCH64)
+            if (compExactlyDependsOn(InstructionSet_LoongArch64Base))
+            {
+                GenTree* op3 = impImplicitR4orR8Cast(impPopStack().val, callType);
+                GenTree* op2 = impImplicitR4orR8Cast(impPopStack().val, callType);
+                GenTree* op1 = impImplicitR4orR8Cast(impPopStack().val, callType);
+                intrinsicId = NI_LoongArch64Base_FusedMultiplyAdd;
+                return gtNewScalarHWIntrinsicNode(callType, op1, op2, op3, intrinsicId);
+            }
+
+            if (compExactlyDependsOn(InstructionSet_LSX))
+            {
+                simdType    = TYP_SIMD16;
+                intrinsicId = NI_LSX_FusedMultiplyAdd;
+            }
+#endif // TARGET_XARCH || TARGET_ARM64 || TARGET_LOONGARCH64
             break;
         }
 
@@ -9920,7 +10031,23 @@ GenTree* Compiler::impEstimateIntrinsic(CORINFO_METHOD_HANDLE method,
                 simdType    = TYP_SIMD8;
                 intrinsicId = NI_AdvSimd_Arm64_ReciprocalEstimateScalar;
             }
-#endif // TARGET_ARM64
+#elif defined(TARGET_LOONGARCH64)
+            if (compExactlyDependsOn(InstructionSet_FRECIPE))
+            {
+                if (compExactlyDependsOn(InstructionSet_LoongArch64Base))
+                {
+                    GenTree* op1 = impImplicitR4orR8Cast(impPopStack().val, callType);
+                    intrinsicId = NI_LoongArch64Base_ReciprocalEstimate;
+                    return gtNewScalarHWIntrinsicNode(callType, op1, intrinsicId);
+                }
+
+                if (compExactlyDependsOn(InstructionSet_LSX))
+                {
+                    simdType    = TYP_SIMD16;
+                    intrinsicId = NI_LSX_ReciprocalEstimate;
+                }
+            }
+#endif // TARGET_XARCH || TARGET_ARM64 || TARGET_LOONGARCH64
             break;
         }
 
@@ -9945,7 +10072,23 @@ GenTree* Compiler::impEstimateIntrinsic(CORINFO_METHOD_HANDLE method,
                 simdType    = TYP_SIMD8;
                 intrinsicId = NI_AdvSimd_Arm64_ReciprocalSquareRootEstimateScalar;
             }
-#endif // TARGET_ARM64
+#elif defined(TARGET_LOONGARCH64)
+            if (compExactlyDependsOn(InstructionSet_FRECIPE))
+            {
+                if (compExactlyDependsOn(InstructionSet_LoongArch64Base))
+                {
+                    GenTree* op1 = impImplicitR4orR8Cast(impPopStack().val, callType);
+                    intrinsicId = NI_LoongArch64Base_ReciprocalSqrtEstimate;
+                    return gtNewScalarHWIntrinsicNode(callType, op1, intrinsicId);
+                }
+
+                if (compExactlyDependsOn(InstructionSet_LSX))
+                {
+                    simdType    = TYP_SIMD16;
+                    intrinsicId = NI_LSX_ReciprocalSqrtEstimate;
+                }
+            }
+#endif // TARGET_XARCH || TARGET_ARM64 || TARGET_LOONGARCH64
             break;
         }
 
@@ -11021,6 +11164,8 @@ NamedIntrinsic Compiler::lookupNamedIntrinsic(CORINFO_METHOD_HANDLE method)
                         platformNamespaceName = ".X86";
 #elif defined(TARGET_ARM64)
                         platformNamespaceName = ".Arm";
+#elif defined(TARGET_LOONGARCH64)
+                        platformNamespaceName = ".LoongArch";
 #else
 #error Unsupported platform
 #endif
@@ -11087,6 +11232,16 @@ NamedIntrinsic Compiler::lookupNamedIntrinsic(CORINFO_METHOD_HANDLE method)
 
                                 result = NI_Vector_GetCount;
                             }
+#if defined(TARGET_LOONGARCH64)
+                            else if (strcmp(methodName, "CompareExchange") == 0)
+                            {
+                                result = NI_System_Threading_Interlocked_CompareExchange;
+                            }
+                            else if (strcmp(methodName, "Exchange") == 0)
+                            {
+                                result = NI_System_Threading_Interlocked_Exchange;
+                            }
+#endif
                             else if (gtIsRecursiveCall(method, false))
                             {
                                 // For the framework itself, any recursive intrinsics will either be

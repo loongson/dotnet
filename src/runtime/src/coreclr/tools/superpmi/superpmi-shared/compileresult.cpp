@@ -905,7 +905,41 @@ void CompileResult::applyRelocs(RelocContext* rc, unsigned char* block1, ULONG b
                     break;
             }
         }
+        if (targetArch == SPMI_TARGET_ARCHITECTURE_LOONGARCH64)
+        {
+            DWORDLONG fixupLocation = tmp.location;
+            DWORDLONG address       = section_begin + (size_t)fixupLocation - (size_t)originalAddr;
+            switch (relocType)
+            {
+                case IMAGE_REL_LOONGARCH64_PC:
+                {
+                    if ((section_begin <= address) && (address < section_end)) // A reloc for our section?
+                    {
+                        // Similar to x64's IMAGE_REL_BASED_REL32 handling we
+                        // will handle this by also hardcoding the bottom bits
+                        // of the target into the instruction.
+                        PutLoongArch64PC12((UINT32 *)address, (INT32)tmp.target);
+                    }
+                    wasRelocHandled = true;
+                }
+                break;
+                case IMAGE_REL_LOONGARCH64_BRANCH26:
+                {
+                    if ((section_begin <= address) && (address < section_end)) // A reloc for our section?
+                    {
+                        // Similar to x64's IMAGE_REL_BASED_REL32 handling we
+                        // will handle this by also hardcoding the bottom bits
+                        // of the target into the instruction.
+                        PutLoongArch64Rel28((UINT32 *)address, (INT32)(tmp.target & 0x0FFFFFFCLL));
+                    }
+                    wasRelocHandled = true;
+                }
+                break;
 
+                default:
+                    break;
+            }
+        }
         if (targetArch == SPMI_TARGET_ARCHITECTURE_RISCV64)
         {
             DWORDLONG fixupLocation = tmp.location;

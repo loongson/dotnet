@@ -2273,6 +2273,22 @@ INT64 GetLoongArch64JIR(UINT32 * pCode)
 }
 
 //*****************************************************************************
+//  Extract the PC-Relative offset from a b or bl instruction
+//*****************************************************************************
+INT32 GetLoongArch64Rel28(UINT32 * pCode)
+{
+    UINT32 branchInstr = *pCode;
+
+    // first get and sign-extend the high 10 bits,
+    INT32 imm28 = ((INT32)((branchInstr & 0x000003FF) << 22) >> 4);
+
+    // then get the low 16 bits
+    imm28 |= ((branchInstr >> 10) & 0xFFFF) << 2;
+
+    return imm28;
+}
+
+//*****************************************************************************
 //  Deposit the PC-Relative page address and page offset into pcalau12i+add/ld
 //*****************************************************************************
 void PutLoongArch64PC12(UINT32 * pCode, INT64 imm)
@@ -2332,6 +2348,30 @@ void PutLoongArch64JIR(UINT32 * pCode, INT64 imm38)
     _ASSERTE(GetLoongArch64JIR(pCode) == imm38);
 }
 
+//*****************************************************************************
+//  Deposit the PC-Relative offset 'imm28' into a b or bl instruction
+//*****************************************************************************
+void PutLoongArch64Rel28(UINT32 * pCode, INT32 imm28)
+{
+    LIMITED_METHOD_CONTRACT;
+
+    // Verify that we got a valid offset
+    _ASSERTE(FitsInRel28(imm28));
+    _ASSERTE((imm28 & 0x3) == 0);    // the low two bits must be zero
+
+    UINT32 branchInstr = *pCode;
+
+    branchInstr &= 0xFC000000;       // keep bits 31-26
+
+    // Assemble the pc-relative delta high 10 bit of 'imm28' into the branch instruction
+    branchInstr |= ((imm28 >> 18) & 0x000003FF);
+    // Assemble the pc-relative delta low 16 bit of 'imm28' into the branch instruction
+    branchInstr |= ((imm28 << 8) & 0x03fffc00);
+
+    *pCode = branchInstr;          // write the assembled instruction
+
+    _ASSERTE(GetLoongArch64Rel28(pCode) == imm28);
+}
 
 //*****************************************************************************
 //  Extract the PC-Relative offset from auipc + I-type adder (addi/ld/jalr)

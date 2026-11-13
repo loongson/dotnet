@@ -9,6 +9,7 @@ using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.Wasm;
 using System.Runtime.Intrinsics.X86;
+using System.Runtime.Intrinsics.LoongArch;
 
 // Some routines inspired by the Stanford Bit Twiddling Hacks by Sean Eron Anderson:
 // http://graphics.stanford.edu/~seander/bithacks.html
@@ -96,7 +97,7 @@ namespace System.Numerics
         [CLSCompliant(false)]
         public static uint RoundUpToPowerOf2(uint value)
         {
-            if (X86Base.IsSupported || ArmBase.IsSupported || WasmBase.IsSupported)
+            if (X86Base.IsSupported || ArmBase.IsSupported || WasmBase.IsSupported || LoongArch64Base.IsSupported)
             {
 #if TARGET_64BIT
                 return (uint)(0x1_0000_0000ul >> LeadingZeroCount(value - 1));
@@ -128,7 +129,7 @@ namespace System.Numerics
         [CLSCompliant(false)]
         public static ulong RoundUpToPowerOf2(ulong value)
         {
-            if (X86Base.X64.IsSupported || ArmBase.Arm64.IsSupported || WasmBase.IsSupported)
+            if (X86Base.X64.IsSupported || ArmBase.Arm64.IsSupported || WasmBase.IsSupported || LoongArch64Base.IsSupported)
             {
                 int shift = 64 - LeadingZeroCount(value - 1);
                 return (1ul ^ (ulong)(shift >> 6)) << shift;
@@ -180,6 +181,11 @@ namespace System.Numerics
                 return (int)Lzcnt.LeadingZeroCount(value);
             }
 
+            if (LoongArch64Base.IsSupported)
+            {
+                return LoongArch64Base.LeadingZeroCount(value);
+            }
+
             if (ArmBase.IsSupported)
             {
                 return ArmBase.LeadingZeroCount(value);
@@ -221,6 +227,11 @@ namespace System.Numerics
             {
                 // LZCNT contract is 0->64
                 return (int)Lzcnt.X64.LeadingZeroCount(value);
+            }
+
+            if (LoongArch64Base.IsSupported)
+            {
+                return LoongArch64Base.LeadingZeroCount(value);
             }
 
             if (ArmBase.Arm64.IsSupported)
@@ -291,6 +302,11 @@ namespace System.Numerics
                 return 31 ^ (int)Lzcnt.LeadingZeroCount(value);
             }
 
+            if (LoongArch64Base.IsSupported)
+            {
+                return 31 ^ LoongArch64Base.LeadingZeroCount(value);
+            }
+
             if (ArmBase.IsSupported)
             {
                 return 31 ^ ArmBase.LeadingZeroCount(value);
@@ -327,6 +343,11 @@ namespace System.Numerics
             if (Lzcnt.X64.IsSupported)
             {
                 return 63 ^ (int)Lzcnt.X64.LeadingZeroCount(value);
+            }
+
+            if (LoongArch64Base.IsSupported)
+            {
+                return 63 ^ LoongArch64Base.LeadingZeroCount(value);
             }
 
             if (ArmBase.Arm64.IsSupported)
@@ -443,6 +464,13 @@ namespace System.Numerics
                 return aggregated.ToScalar();
             }
 
+            if (Lsx.IsSupported)
+            {
+                // PopCount works on vector so convert input value to vector first.
+                Vector128<uint> input = Lsx.PopCount(Vector128.CreateScalar(value));
+                return (int)input.ToScalar();
+            }
+
             return SoftwareFallback(value);
 
             static int SoftwareFallback(uint value)
@@ -481,6 +509,13 @@ namespace System.Numerics
                 Vector64<ulong> input = Vector64.Create(value);
                 Vector64<byte> aggregated = AdvSimd.Arm64.AddAcross(AdvSimd.PopCount(input.AsByte()));
                 return aggregated.ToScalar();
+            }
+
+            if (Lsx.IsSupported)
+            {
+                // PopCount works on vector so convert input value to vector first.
+                Vector128<ulong> input = Lsx.PopCount(Vector128.CreateScalar(value));
+                return (int)input.ToScalar();
             }
 
 #if TARGET_32BIT
@@ -547,6 +582,11 @@ namespace System.Numerics
                 return (int)Bmi1.TrailingZeroCount(value);
             }
 
+            if (LoongArch64Base.IsSupported)
+            {
+                return LoongArch64Base.TrailingZeroCount(value);
+            }
+
             if (ArmBase.IsSupported)
             {
                 return ArmBase.LeadingZeroCount(ArmBase.ReverseElementBits(value));
@@ -600,6 +640,11 @@ namespace System.Numerics
             {
                 // TZCNT contract is 0->64
                 return (int)Bmi1.X64.TrailingZeroCount(value);
+            }
+
+            if (LoongArch64Base.IsSupported)
+            {
+                return LoongArch64Base.TrailingZeroCount(value);
             }
 
             if (ArmBase.Arm64.IsSupported)
@@ -780,6 +825,11 @@ namespace System.Numerics
                 return Crc32.ComputeCrc32C(crc, data);
             }
 
+            if (LoongArch64Base.IsSupported)
+            {
+                return LoongArch64Base.CyclicRedundancyCheckCastagnoli(crc, data);
+            }
+
             return Crc32Fallback.Crc32C(crc, data);
         }
 
@@ -802,6 +852,11 @@ namespace System.Numerics
             if (Crc32.IsSupported)
             {
                 return Crc32.ComputeCrc32C(crc, data);
+            }
+
+            if (LoongArch64Base.IsSupported)
+            {
+                return LoongArch64Base.CyclicRedundancyCheckCastagnoli(crc, data);
             }
 
             return Crc32Fallback.Crc32C(crc, data);
@@ -828,6 +883,11 @@ namespace System.Numerics
                 return Crc32.ComputeCrc32C(crc, data);
             }
 
+            if (LoongArch64Base.IsSupported)
+            {
+                return LoongArch64Base.CyclicRedundancyCheckCastagnoli(crc, data);
+            }
+
             return Crc32Fallback.Crc32C(crc, data);
         }
 
@@ -851,6 +911,11 @@ namespace System.Numerics
             if (Crc32.Arm64.IsSupported)
             {
                 return Crc32.Arm64.ComputeCrc32C(crc, data);
+            }
+
+            if (LoongArch64Base.IsSupported)
+            {
+                return LoongArch64Base.CyclicRedundancyCheckCastagnoli(crc, data);
             }
 
             return Crc32C(Crc32C(crc, (uint)(data)), (uint)(data >> 32));

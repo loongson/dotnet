@@ -227,6 +227,7 @@ namespace ILCompiler.PEWriter
                         break;
                     }
                 case RelocType.IMAGE_REL_BASED_LOONGARCH64_JIR:
+                case RelocType.IMAGE_REL_BASED_LOONGARCH64_BRANCH26:
                     {
                         relocationLength = 8;
                         delta = targetRVA - sourceRVA;
@@ -257,6 +258,7 @@ namespace ILCompiler.PEWriter
                              (relocationType == RelocType.IMAGE_REL_BASED_ARM64_PAGEOFFSET_12A) ||
                              (relocationType == RelocType.IMAGE_REL_BASED_LOONGARCH64_PC) ||
                              (relocationType == RelocType.IMAGE_REL_BASED_LOONGARCH64_JIR) ||
+                             (relocationType == RelocType.IMAGE_REL_BASED_LOONGARCH64_BRANCH26) ||
                              (relocationType == RelocType.IMAGE_REL_BASED_RISCV64_PC)
                              ) && (value != 0))
                         {

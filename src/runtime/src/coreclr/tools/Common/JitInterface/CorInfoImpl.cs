@@ -4005,7 +4005,6 @@ namespace Internal.JitInterface
                     const ushort IMAGE_REL_ARM64_TLSDESC_ADD_LO12 = 0x109;
                     const ushort IMAGE_REL_ARM64_TLSDESC_CALL = 0x10A;
 
-
                     switch (fRelocType)
                     {
                         case IMAGE_REL_ARM64_BRANCH26:
@@ -4035,6 +4034,7 @@ namespace Internal.JitInterface
                 {
                     const ushort IMAGE_REL_LOONGARCH64_PC = 3;
                     const ushort IMAGE_REL_LOONGARCH64_JIR = 4;
+                    const ushort IMAGE_REL_LOONGARCH64_BRANCH26 = 5;
 
                     switch (fRelocType)
                     {
@@ -4042,6 +4042,8 @@ namespace Internal.JitInterface
                             return RelocType.IMAGE_REL_BASED_LOONGARCH64_PC;
                         case IMAGE_REL_LOONGARCH64_JIR:
                             return RelocType.IMAGE_REL_BASED_LOONGARCH64_JIR;
+                        case IMAGE_REL_LOONGARCH64_BRANCH26:
+                            return RelocType.IMAGE_REL_BASED_LOONGARCH64_BRANCH26;
                         default:
                             Debug.Fail("Invalid RelocType: " + fRelocType);
                             return 0;

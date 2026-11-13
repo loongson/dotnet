@@ -96,6 +96,21 @@ int Compiler::getSIMDTypeAlignment(var_types simdType)
     // preferred alignment for 64-bit vectors is 8-bytes.
     // For everything else, 16-bytes.
     return (size == 8) ? 8 : 16;
+#elif defined(TARGET_LOONGARCH64)
+    if (size == 8)
+    {
+        return 8;
+    }
+    else if (size <= 16)
+    {
+        assert((size == 12) || (size == 16));
+        return 16;
+    }
+    else
+    {
+        assert(size == 32);
+        return 32;
+    }
 #else
     assert(!"getSIMDTypeAlignment() unimplemented on target arch");
     unreached();
@@ -448,6 +463,26 @@ CorInfoType Compiler::getBaseJitTypeAndSizeOfSIMDType(CORINFO_CLASS_HANDLE typeH
             }
 #endif // TARGET_XARCH
 
+#if defined(TARGET_LOONGARCH64)
+            case 32:
+            {
+                if (strcmp(className, "Vector256`1") != 0)
+                {
+                    return CORINFO_TYPE_UNDEF;
+                }
+
+                CORINFO_CLASS_HANDLE typeArgHnd = info.compCompHnd->getTypeInstantiationArgument(typeHnd, 0);
+                simdBaseJitType                 = info.compCompHnd->getTypeForPrimitiveNumericClass(typeArgHnd);
+
+                if ((simdBaseJitType < CORINFO_TYPE_BYTE) || (simdBaseJitType > CORINFO_TYPE_DOUBLE))
+                {
+                    return CORINFO_TYPE_UNDEF;
+                }
+
+                JITDUMP(" Found Vector256<%s>\n", varTypeName(JitType2PreciseVarType(simdBaseJitType)));
+                break;
+            }
+#endif //TARGET_LOONGARCH64
             default:
             {
                 return CORINFO_TYPE_UNDEF;

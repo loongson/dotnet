@@ -1984,6 +1984,17 @@ bool CSE_HeuristicCommon::CanConsiderTree(GenTree* tree, bool isReturn)
                 case HW_Category_Scalar:
                 case HW_Category_Helper:
                     break;
+#elif defined(TARGET_LOONGARCH64)
+                case HW_Category_SIMD:
+                case HW_Category_Scalar:
+                case HW_Category_Helper:
+                case HW_Category_2R:
+                case HW_Category_3R:
+                case HW_Category_4R:
+                case HW_Category_1R_1I:
+                case HW_Category_2R_1I:
+                case HW_Category_2R_2I:
+                    break;
 #endif
 
                 case HW_Category_MemoryLoad:
@@ -4691,6 +4702,8 @@ bool CSE_Heuristic::PromotionCheck(CSE_Candidate* candidate)
                 {
                     hasRequiredSpill = true;
                 }
+#elif defined(TARGET_LOONGARCH64)
+                // TODO: should confirm!
 #endif
 #endif // FEATURE_SIMD
             }
@@ -5869,7 +5882,7 @@ bool Compiler::optSharedConstantCSEEnabled()
     {
         enableSharedConstCSE = true;
     }
-#if defined(TARGET_ARMARCH)
+#if defined(TARGET_ARMARCH) || defined(TARGET_LOONGARCH64)
     else if (configValue == CONST_CSE_ENABLE_ARM)
     {
         enableSharedConstCSE = true;
@@ -5894,7 +5907,7 @@ bool Compiler::optConstantCSEEnabled()
     {
         enableConstCSE = true;
     }
-#if defined(TARGET_ARMARCH)
+#if defined(TARGET_ARMARCH) || defined(TARGET_LOONGARCH64)
     else if ((configValue == CONST_CSE_ENABLE_ARM) || (configValue == CONST_CSE_ENABLE_ARM_NO_SHARING))
     {
         enableConstCSE = true;

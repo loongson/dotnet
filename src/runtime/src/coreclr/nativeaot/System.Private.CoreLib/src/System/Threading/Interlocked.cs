@@ -5,6 +5,10 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime;
 using System.Runtime.CompilerServices;
+#if TARGET_LOONGARCH64
+using System.Runtime.Intrinsics.LoongArch;
+#endif
+
 
 namespace System.Threading
 {
@@ -18,6 +22,12 @@ namespace System.Threading
 #if TARGET_X86 || TARGET_AMD64 || TARGET_ARM64 || TARGET_RISCV64
             return CompareExchange(ref location1, value, comparand); // Must expand intrinsic
 #else
+#if TARGET_LOONGARCH64
+            if (Lam.CAS.IsSupported)
+            {
+                return Lam.CAS.CompareExchange(ref location1, value, comparand); // Must expand intrinsic
+            }
+#endif
             if (Unsafe.IsNullRef(ref location1))
                 ThrowHelper.ThrowNullReferenceException();
             return RuntimeImports.InterlockedCompareExchange(ref location1, value, comparand);
@@ -37,6 +47,12 @@ namespace System.Threading
 #if TARGET_X86 || TARGET_AMD64 || TARGET_ARM64 || TARGET_RISCV64
             return CompareExchange(location1, value, comparand); // Must expand intrinsic
 #else
+#if TARGET_LOONGARCH64
+            if (Lam.CAS.IsSupported)
+            {
+                return Lam.CAS.CompareExchange(location1, value, comparand); // Must expand intrinsic
+            }
+#endif
             Debug.Assert(location1 != null);
             return RuntimeImports.InterlockedCompareExchange(location1, value, comparand);
 #endif
@@ -49,6 +65,12 @@ namespace System.Threading
 #if TARGET_AMD64 || TARGET_ARM64 || TARGET_RISCV64
             return CompareExchange(ref location1, value, comparand); // Must expand intrinsic
 #else
+#if TARGET_LOONGARCH64
+            if (Lam.CAS.IsSupported)
+            {
+                return Lam.CAS.CompareExchange(ref location1, value, comparand); // Must expand intrinsic
+            }
+#endif
             if (Unsafe.IsNullRef(ref location1))
                 ThrowHelper.ThrowNullReferenceException();
             return RuntimeImports.InterlockedCompareExchange(ref location1, value, comparand);
@@ -72,7 +94,7 @@ namespace System.Threading
         [Intrinsic]
         public static int Exchange(ref int location1, int value)
         {
-#if TARGET_X86 || TARGET_AMD64 || TARGET_ARM64 || TARGET_RISCV64
+#if TARGET_X86 || TARGET_AMD64 || TARGET_ARM64 || TARGET_RISCV64 || TARGET_LOONGARCH64
             return Exchange(ref location1, value); // Must expand intrinsic
 #else
             int oldValue;
@@ -89,7 +111,7 @@ namespace System.Threading
         [Intrinsic]
         public static long Exchange(ref long location1, long value)
         {
-#if TARGET_AMD64 || TARGET_ARM64 || TARGET_RISCV64
+#if TARGET_AMD64 || TARGET_ARM64 || TARGET_RISCV64 || TARGET_LOONGARCH64
             return Exchange(ref location1, value); // Must expand intrinsic
 #else
             long oldValue;

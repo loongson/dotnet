@@ -200,6 +200,11 @@ namespace System.IO.Hashing
             {
                 return UpdateScalarArm32(crc, source);
             }
+
+            if (System.Runtime.Intrinsics.LoongArch.LoongArch64Base.IsSupported)
+            {
+                return UpdateScalarLoongArch64(crc, source);
+            }
 #endif
 
             ReadOnlySpan<uint> crcLookup = CrcLookup;

@@ -8360,6 +8360,22 @@ void emitter::emitSimdConstCompressedLoad(simd_t* constValue, emitAttr attr, reg
 }
 #endif // TARGET_XARCH
 
+#if defined(TARGET_LOONGARCH64)
+CORINFO_FIELD_HANDLE emitter::emitSimd32Const(simd32_t constValue)
+{
+    unsigned cnsSize  = 32;
+    unsigned cnsAlign = cnsSize;
+
+    if (emitComp->compCodeOpt() == Compiler::SMALL_CODE)
+    {
+        cnsAlign = dataSection::MIN_DATA_ALIGN;
+    }
+
+    UNATIVE_OFFSET cnum = emitDataConst(&constValue, cnsSize, cnsAlign, TYP_SIMD32);
+    return emitComp->eeFindJitDataOffs(cnum);
+}
+#endif // TARGET_LOONGARCH64
+
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
 CORINFO_FIELD_HANDLE emitter::emitSimdMaskConst(simdmask_t constValue)
 {

@@ -850,6 +850,20 @@ bool Compiler::fgForwardSubStatement(Statement* stmt)
 
             LclVarDsc* const fwdVarDsc = lvaGetDesc(fwdLclNum);
 
+#if defined(FEATURE_SIMD) && defined(TARGET_LOONGARCH64)
+            // For LA, when the fwd node type is SIMD and the fwd's Lclval is converted
+            // through struct Promoted.
+            // These may later turn into indirections and the backend does not support
+            // those as sources of multi-reg returns.
+            //
+            LclVarDsc* const fwdParentVarDsc = lvaGetDesc(fwdVarDsc->lvParentLcl);
+            if (varTypeIsSIMD(fwdSubNode) && fwdParentVarDsc->lvPromoted)
+            {
+                JITDUMP(" parent is multi-reg return; fwd sub node type is SIMD, target is LoongArch64\n");
+                return false;
+            }
+#endif
+
             JITDUMP(" [marking V%02u as multi-reg-ret]", fwdLclNum);
             // TODO-Quirk: Only needed for heuristics
             fwdVarDsc->lvIsMultiRegRet = true;

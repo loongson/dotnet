@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.X86;
+using System.Runtime.Intrinsics.LoongArch;
 using System.Runtime.Serialization;
 
 namespace System.Collections
@@ -845,6 +846,44 @@ namespace System.Collections
                             Vector128<byte> normalizedHigher = AdvSimd.Min(extractedHigher, ones);
 
                             AdvSimd.Arm64.StorePair((byte*)destination + i, normalizedLower, normalizedHigher);
+                        }
+                    }
+                }
+                else if (Lsx.IsSupported)
+                {
+                    Vector128<byte> ones = Vector128.Create((byte)1);
+                    Vector128<byte> bitMask128 = Vector128.Create(0x80402010_08040201).AsByte();
+
+                    fixed (bool* destination = &boolArray[index])
+                    {
+                        for (; (i + Vector128<byte>.Count * 2u) <= (uint)_bitLength; i += (uint)Vector128<byte>.Count * 2u)
+                        {
+                            int bits = in32Span[(int)(i / (uint)BitsPerInt32)];
+
+                            // Same logic as SSSE3 path
+                            // Instead we use chained VILVL/VILVH instructions:
+                            // (A0 is the byte containing LSB, A3 is the byte containing MSB)
+                            // bits                                               - A0 A1 A2 A3
+                            // v1 = Vector128.Create                              - A0 A1 A2 A3 A0 A1 A2 A3 A0 A1 A2 A3 A0 A1 A2 A3
+                            // v2 = VectorElementsFusionLower(v1, v1)             - A0 A0 A1 A1 A2 A2 A3 A3 A0 A0 A1 A1 A2 A2 A3 A3
+                            // v3 = VectorElementsFusionLower(v2, v2)             - A0 A0 A0 A0 A1 A1 A1 A1 A2 A2 A2 A2 A3 A3 A3 A3
+                            // shuffledLower = VectorElementsFusionLower(v3, v3)  - A0 A0 A0 A0 A0 A0 A0 A0 A1 A1 A1 A1 A1 A1 A1 A1
+                            // shuffledHigher = VectorElementsFusionHight(v3, v3) - A2 A2 A2 A2 A2 A2 A2 A2 A3 A3 A3 A3 A3 A3 A3 A3
+
+                            Vector128<byte> vector = Vector128.Create(bits).AsByte();
+                            vector = Lsx.VectorElementsFusionLower(vector, vector);
+                            vector = Lsx.VectorElementsFusionLower(vector, vector);
+
+                            Vector128<byte> shuffledLower = Lsx.VectorElementsFusionLower(vector, vector);
+                            Vector128<byte> extractedLower = Lsx.And(shuffledLower, bitMask128);
+                            Vector128<byte> normalizedLower = Lsx.Min(extractedLower, ones);
+                            Lsx.Store(normalizedLower, (byte*)destination + i, 0);
+
+                            Vector128<byte> shuffledHigher = Lsx.VectorElementsFusionHight(vector, vector);
+                            Vector128<byte> extractedHigher = Lsx.And(shuffledHigher, bitMask128);
+                            Vector128<byte> normalizedHigher = Lsx.Min(extractedHigher, ones);
+
+                            Lsx.Store(normalizedHigher, (byte*)destination + i, 16);
                         }
                     }
                 }

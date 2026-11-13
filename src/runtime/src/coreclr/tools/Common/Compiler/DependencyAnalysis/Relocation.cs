@@ -19,7 +19,8 @@ namespace ILCompiler.DependencyAnalysis
         IMAGE_REL_BASED_ARM64_BRANCH26       = 0x15,   // Arm64: B, BL
         IMAGE_REL_BASED_LOONGARCH64_PC       = 0x16,   // LoongArch64: pcalau12i+imm12
         IMAGE_REL_BASED_LOONGARCH64_JIR      = 0x17,   // LoongArch64: pcaddu18i+jirl
-        IMAGE_REL_BASED_RISCV64_PC           = 0x18,   // RiscV64: auipc
+        IMAGE_REL_BASED_LOONGARCH64_BRANCH26 = 0x18,   // LoongArch64: B, BL
+        IMAGE_REL_BASED_RISCV64_PC           = 0x19,   // RiscV64: auipc
         IMAGE_REL_BASED_RELPTR32             = 0x7C,   // 32-bit relative address from byte starting reloc
                                                        // This is a special NGEN-specific relocation type
                                                        // for relative pointer (used to make NGen relocation
@@ -439,6 +440,45 @@ namespace ILCompiler.DependencyAnalysis
             Debug.Assert(GetLoongArch64JIR(pCode) == imm38);
         }
 
+        private static unsafe int GetLoongArch64Rel28(uint* pCode)
+        {
+            uint branchInstr = *pCode;
+
+            // first get and sign-extend the high 10 bits,
+            int imm28 = ((int)((branchInstr & 0x000003FF) << 22) >> 4);
+
+            // then get the low 16 bits
+            imm28 |= (int)((branchInstr >> 10) & 0xFFFF) << 2;
+
+            return imm28;
+        }
+
+        private static bool FitsInLoongArch64Rel28(int imm28)
+        {
+            return (imm28 >= -0x08000000L) && (imm28 < 0x08000000L);
+        }
+
+        private static unsafe void PutLoongArch64Rel28(uint* pCode, int imm28)
+        {
+            // Verify that we got a valid offset
+            Debug.Assert(FitsInLoongArch64Rel28(imm28));
+
+            Debug.Assert((imm28 & 0x3) == 0);    // the low two bits must be zero
+
+            uint branchInstr = *pCode;
+
+            branchInstr &= 0xFC000000;       // keep bits 31-26
+
+            // Assemble the pc-relative delta high 10 bit of 'imm28' into the branch instruction
+            branchInstr |= (uint)((imm28 >> 18) & 0x000003FF);
+            // Assemble the pc-relative delta low 16 bit of 'imm28' into the branch instruction
+            branchInstr |= (uint)((imm28 << 8) & 0x03fffc00);
+
+            *pCode = branchInstr;          // write the assembled instruction
+
+            Debug.Assert(GetLoongArch64Rel28(pCode) == imm28);
+        }
+
         private static unsafe int GetRiscV64PC(uint* pCode)
         {
             uint auipcInstr = *pCode;
@@ -545,6 +585,9 @@ namespace ILCompiler.DependencyAnalysis
                 case RelocType.IMAGE_REL_BASED_LOONGARCH64_JIR:
                     PutLoongArch64JIR((uint*)location, value);
                     break;
+                case RelocType.IMAGE_REL_BASED_LOONGARCH64_BRANCH26:
+                    PutLoongArch64Rel28((uint*)location, (int)value);
+                    break;
                 case RelocType.IMAGE_REL_BASED_RISCV64_PC:
                     PutRiscV64PC((uint*)location, value);
                     break;
@@ -613,6 +656,8 @@ namespace ILCompiler.DependencyAnalysis
                     return (long)GetLoongArch64PC12((uint*)location);
                 case RelocType.IMAGE_REL_BASED_LOONGARCH64_JIR:
                     return (long)GetLoongArch64JIR((uint*)location);
+                case RelocType.IMAGE_REL_BASED_LOONGARCH64_BRANCH26:
+                    return (long)GetLoongArch64Rel28((uint*)location);
                 case RelocType.IMAGE_REL_BASED_RISCV64_PC:
                     return (long)GetRiscV64PC((uint*)location);
                 default:

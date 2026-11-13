@@ -3402,6 +3402,7 @@ public:
 //
 #define IMAGE_REL_LOONGARCH64_PC        0x0003
 #define IMAGE_REL_LOONGARCH64_JIR       0x0004
+#define IMAGE_REL_LOONGARCH64_BRANCH26  0x0005
 
 //
 // RISCV64 relocation types

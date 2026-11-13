@@ -305,6 +305,63 @@ struct simd64_t
 static_assert_no_msg(sizeof(simd64_t) == 64);
 #endif // TARGET_XARCH
 
+#if defined(TARGET_LOONGARCH64)
+struct simd32_t
+{
+    union
+    {
+        float    f32[8];
+        double   f64[4];
+        int8_t   i8[32];
+        int16_t  i16[16];
+        int32_t  i32[8];
+        int64_t  i64[4];
+        uint8_t  u8[32];
+        uint16_t u16[16];
+        uint32_t u32[8];
+        uint64_t u64[4];
+        simd8_t  v64[4];
+        simd16_t v128[2];
+    };
+
+    bool operator==(const simd32_t& other) const
+    {
+        return (v128[0] == other.v128[0]) && (v128[1] == other.v128[1]);
+    }
+
+    bool operator!=(const simd32_t& other) const
+    {
+        return !(*this == other);
+    }
+
+    static simd32_t AllBitsSet()
+    {
+        simd32_t result;
+
+        result.v128[0] = simd16_t::AllBitsSet();
+        result.v128[1] = simd16_t::AllBitsSet();
+
+        return result;
+    }
+
+    bool IsAllBitsSet() const
+    {
+        return *this == AllBitsSet();
+    }
+
+    bool IsZero() const
+    {
+        return *this == Zero();
+    }
+
+    static simd32_t Zero()
+    {
+        return {};
+    }
+};
+static_assert_no_msg(sizeof(simd32_t) == 32);
+#endif
+
 #if defined(FEATURE_MASKED_HW_INTRINSICS)
 struct simdmask_t
 {
@@ -380,6 +437,8 @@ static_assert_no_msg(sizeof(simdmask_t) == 8);
 
 #if defined(TARGET_XARCH)
 typedef simd64_t simd_t;
+#elif defined(TARGET_LOONGARCH64)
+typedef simd32_t simd_t;
 #else
 typedef simd16_t simd_t;
 #endif

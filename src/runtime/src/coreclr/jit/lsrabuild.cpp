@@ -1591,7 +1591,7 @@ void LinearScan::buildUpperVectorSaveRefPositions(GenTree*                tree,
                 {
                     regType = compiler->GetHfaType(retClsHnd);
                 }
-#if defined(TARGET_ARM64)
+#if defined(TARGET_ARM64) || defined(TARGET_LOONGARCH64)
                 else if (howToReturnStruct == Compiler::SPK_ByValue)
                 {
                     // TODO-Cleanup: add a new Compiler::SPK for this case.
@@ -1599,7 +1599,7 @@ void LinearScan::buildUpperVectorSaveRefPositions(GenTree*                tree,
                     // We don't need a partial callee save.
                     regType = TYP_LONG;
                 }
-#endif // TARGET_ARM64
+#endif // TARGET_ARM64 || TARGET_LOONGARCH64
             }
             assert((regType != TYP_STRUCT) && (regType != TYP_UNDEF));
         }
